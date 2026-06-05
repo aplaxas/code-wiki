@@ -164,17 +164,21 @@ namespace Strazh.Analysis
             }
 
             // Add each built result to the workspace AND register it for analysis.
-            // AddToWorkspace(addProjectReferences:true) pulls a project's referenced
-            // projects into the workspace too; when we later reach such a project's own
-            // result it is already present. Previously those were SKIPPED, so most
-            // library projects (services, modules, DTOs) were never analyzed for code.
-            // Instead, reuse the already-present workspace Project handle so EVERY built
-            // project is analyzed (cross-project references are already wired).
+            //
+            // We pass addProjectReferences:FALSE on purpose. With `true`, adding a project
+            // also pulls its referenced projects into the workspace -- but as DOCUMENT-LESS
+            // (or partial) stubs under the SAME deterministic ProjectId. An app project
+            // (e.g. Shefa.App.BAWPos) sorts first and references every module, so it stubbed
+            // Order/Customer/... with 0 documents; when each module's own result was reached
+            // the stub was already present, so a module with 194 source files was analyzed
+            // as 0 and produced no classes at all.
+            //
+            // With `false`, no project ever stubs another: every project is added exactly
+            // once with its OWN full document set. Cross-project symbols still resolve via
+            // metadata references to the built assemblies (same fullName -> same nodes/edges).
             foreach (IAnalyzerResult result in results)
             {
-                var existing = workspace.CurrentSolution.Projects
-                    .FirstOrDefault(p => p.FilePath == result.ProjectFilePath);
-                var project = existing ?? result.AddToWorkspace(workspace, true);
+                var project = result.AddToWorkspace(workspace, false);
                 projectResults.Add((project, result));
             }
 
