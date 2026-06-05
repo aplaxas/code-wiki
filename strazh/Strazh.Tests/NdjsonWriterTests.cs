@@ -22,4 +22,20 @@ public class NdjsonWriterTests
         Assert.Equal("N.OrderService.Search", root.GetProperty("a").GetProperty("pk_source").GetString());
         Assert.Equal("Method", root.GetProperty("a").GetProperty("labels")[0].GetString());
     }
+
+    [Fact]
+    public void Serializes_registers_relationship_props()
+    {
+        var triple = new TripleRegisters(
+            new InterfaceNode("N.IOrderService", "IOrderService"),
+            new ClassNode("N.OrderService", "OrderService"),
+            "Scoped");
+
+        var line = NdjsonWriter.Serialize(triple);
+        using var doc = System.Text.Json.JsonDocument.Parse(line);
+
+        Assert.Equal("REGISTERS", doc.RootElement.GetProperty("rel").GetProperty("type").GetString());
+        Assert.Equal("Scoped", doc.RootElement
+            .GetProperty("rel").GetProperty("props").GetProperty("lifetime").GetString());
+    }
 }

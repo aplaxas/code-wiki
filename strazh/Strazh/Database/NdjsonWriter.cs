@@ -27,5 +27,6 @@ public static class NdjsonWriter
         ["pk_source"] = node.FullName,
         ["name"] = node.Name,
         ["labels"] = node.AllLabels,
+        ["props"] = new Dictionary<string, string>(),
     };
 }
