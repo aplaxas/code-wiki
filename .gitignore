@@ -4,9 +4,10 @@
 *.user
 *.suo
 
-# ETL output
-out/
+# ETL output (정본 vanuatu.ndjson만 LFS로 공유, 로그/실험 산출물은 무시)
+out/*
 *.ndjson
+!out/vanuatu.ndjson
 
 # IDE
 .vs/
