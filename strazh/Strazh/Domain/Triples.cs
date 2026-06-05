@@ -161,4 +161,11 @@ namespace Strazh.Domain
             : base(command, handler, new ExecutesRelationship())
         { }
     }
+
+    public class TripleBindsTo : Triple
+    {
+        public TripleBindsTo(ClassNode view, ClassNode viewModel)
+            : base(view, viewModel, new BindsToRelationship())
+        { }
+    }
 }

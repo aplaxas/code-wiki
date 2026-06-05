@@ -134,6 +134,21 @@ namespace Strazh.Analysis
             }
         }
 
+        /// <summary>이름 컨벤션 XView -> XViewModel 로 View와 ViewModel을 연결.</summary>
+        public static void LinkViewsToViewModels(IList<Triple> triples, IList<ClassNode> classes)
+        {
+            var byName = classes
+                .GroupBy(c => c.Name)
+                .ToDictionary(g => g.Key, g => g.First());
+            foreach (var view in classes)
+            {
+                if (!view.Name.EndsWith("View") || view.Name.EndsWith("ViewModel")) continue;
+                var vmName = view.Name + "Model"; // SearchOrderView -> SearchOrderViewModel
+                if (byName.TryGetValue(vmName, out var vm))
+                    triples.Add(new TripleBindsTo(view, vm));
+            }
+        }
+
         /// <summary>메서드 파라미터/반환 타입의 도메인 타입 참조를 USES_TYPE으로 추출.</summary>
         public static void GetTypeUsages(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
         {

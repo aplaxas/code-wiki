@@ -66,4 +66,9 @@ namespace Strazh.Domain
     {
         public override string Type => "DEFINES_COMMAND";
     }
+
+    public class BindsToRelationship : Relationship
+    {
+        public override string Type => "BINDS_TO";
+    }
 }
