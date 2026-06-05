@@ -16,16 +16,16 @@ Vanuatu.sln ──(Roslyn 추출)──▶ triples.ndjson ──(배치 적재)�
 | Docker | 로컬 Neo4j 실행용 |
 | Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` |
 
-> **⚠️ 빌드 커버리지:** ETL은 솔루션의 각 프로젝트를 Buildalyzer로 빌드해 분석합니다. WPF 모듈(`Shefa.Module.*`)·`Torba.Service`/`Torba.DAL`이 빌드되지 않는 환경에서는 그래프가 **부분 커버리지**가 됩니다(이 경우 `BINDS_TO`/`USES` 엣지가 비거나 적음). **전체 커버리지를 보려면 Visual Studio 등에서 솔루션 전체가 정상 빌드되는(Telerik 피드·net10-windows 워크로드가 갖춰진) 환경에서 실행**하세요. 자세히: [docs/cookbook/schema-cookbook.md](docs/cookbook/schema-cookbook.md) §5.
+> **⚠️ 커버리지:** 서버·서비스·DTO·인터페이스 측(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS` 등)은 전체 커버됩니다. 다만 **WPF 모듈(`Shefa.Module.*`)의 화면 측(`View`/`ViewModel`/`Command` → `BINDS_TO`/`EXECUTES`)은 환경에 따라 부분적**입니다: net10-windows WPF 프로젝트의 design-time 빌드에 **Telerik NuGet 피드 인증**이 필요한데, 피드가 막힌 환경에서는 Buildalyzer가 모듈 소스를 일부만 캡처해 ViewModel/View가 거의 안 잡힙니다. **화면 측까지 보려면 Telerik 피드가 인증된(솔루션 전체가 정상 빌드되는) 환경에서 실행**하세요. 추출/적재 로그의 `WARN: project X failed` 및 끝의 요약으로 누락 프로젝트를 확인할 수 있습니다. 자세히: [docs/cookbook/schema-cookbook.md](docs/cookbook/schema-cookbook.md) §5.
 
 ---
 
 ## 1. Neo4j 실행 (Docker)
 
 ```bash
-docker run -d --name neo4j-vanuatu \
-  -p 7474:7474 -p 7687:7687 \
-  -e NEO4J_AUTH=neo4j/strazhpass \
+docker run -d --name neo4j-vanuatu `
+  -p 7474:7474 -p 7687:7687 `
+  -e NEO4J_AUTH=neo4j/strazhpass `
   neo4j:5
 ```
 - 브라우저: http://localhost:7474 (id `neo4j` / pw `strazhpass`)
@@ -40,11 +40,11 @@ docker run -d --name neo4j-vanuatu \
 
 ### ① 추출: Vanuatu.sln → NDJSON
 ```bash
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- \
-  -c "neo4j:neo4j:strazhpass" \
-  -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" \
-  -t code \
-  -o ndjson \
+dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
+  -c "neo4j:neo4j:strazhpass" `
+  -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" `
+  -t code `
+  -o ndjson `
   --ndjson-path out/vanuatu.ndjson
 ```
 → `out/vanuatu.ndjson` 생성 (트리플 한 줄씩). 컴파일이 제일 느린 단계라, 한 번 떠두면 적재를 여러 번 재시도해도 재컴파일이 필요 없습니다.

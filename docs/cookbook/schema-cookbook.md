@@ -95,7 +95,7 @@ RETURN [n IN nodes(path) | n.name] AS cycle LIMIT 20;
 
 ## 5. ⚠️ 현재 그래프의 한계 (질의 시 유의)
 
-1. **부분 커버리지(환경 의존):** 헤드리스 분석에서는 net10-windows WPF 모듈(`Shefa.Module.*`)과 `Torba.Service`/`Torba.DAL`이 빌드되지 않아 빠질 수 있습니다. 그 경우 `BINDS_TO`/`USES`/`EXECUTES`가 비거나 적습니다. 전체 커버리지는 모든 프로젝트가 빌드되는 환경에서 적재해야 합니다. (자세히: 리포 `docs` 및 메모 `vanuatu-megacompile-coverage`)
+1. **화면 측 부분 커버리지(환경 의존):** 서버·서비스·DTO·인터페이스(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS`)는 전체 커버됩니다. 그러나 **WPF 모듈(`Shefa.Module.*`)의 `View`/`ViewModel`/`Command`는 환경에 따라 비거나 적습니다** — net10-windows WPF의 design-time 빌드에 Telerik 피드 인증이 필요하고, 막힌 환경에서는 모듈 소스가 일부만 캡처됩니다. 따라서 `BINDS_TO`/`EXECUTES`/`(:ViewModel)`/`(:View)` 결과가 비면 코드에 없는 게 아니라 **그 모듈이 완전 분석되지 않은 것**입니다. Telerik 피드가 인증된 환경에서 재적재하면 채워집니다.
 2. **생성자 주입 DI 미반영:** `USES_TYPE`는 일반 메서드만 추출하고 **생성자 파라미터는 추출하지 않습니다.** 따라서 "Singleton이 Scoped를 생성자 주입하는 captive dependency"는 현재 그래프만으로는 완전 탐지 불가 — `REGISTERS` 생명주기 + 프로젝트 `DEPENDS_ON` 수준까지만 가능. (향후 보강 항목)
 3. **라우트 문자열 경계(B)는 미구현:** HTTP 경로 기준 컨트롤러 연결은 후순위. 경계 관통은 공유 인터페이스(`IMPLEMENTS_METHOD`)로만 이뤄집니다.
 4. **이름 충돌:** `name`은 짧은 이름이라 네임스페이스 간 충돌 가능. 정밀 식별은 `fullName` 또는 `pk` 사용.
