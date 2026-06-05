@@ -16,7 +16,9 @@ Vanuatu.sln ──(Roslyn 추출)──▶ triples.ndjson ──(배치 적재)�
 | Docker | 로컬 Neo4j 실행용 |
 | Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` |
 
-> **⚠️ 커버리지:** 서버·서비스·DTO·인터페이스 측(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS` 등)은 전체 커버됩니다. 다만 **WPF 모듈(`Shefa.Module.*`)의 화면 측(`View`/`ViewModel`/`Command` → `BINDS_TO`/`EXECUTES`)은 환경에 따라 부분적**입니다: net10-windows WPF 프로젝트의 design-time 빌드에 **Telerik NuGet 피드 인증**이 필요한데, 피드가 막힌 환경에서는 Buildalyzer가 모듈 소스를 일부만 캡처해 ViewModel/View가 거의 안 잡힙니다. **화면 측까지 보려면 Telerik 피드가 인증된(솔루션 전체가 정상 빌드되는) 환경에서 실행**하세요. 추출/적재 로그의 `WARN: project X failed` 및 끝의 요약으로 누락 프로젝트를 확인할 수 있습니다. 자세히: [docs/cookbook/schema-cookbook.md](docs/cookbook/schema-cookbook.md) §5.
+> **커버리지:** 서버·서비스·DTO·인터페이스(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS`)와 **WPF 화면 측(`View`/`ViewModel`/`Command` → `BINDS_TO`/`EXECUTES`)까지 전체 커버**됩니다. Vanuatu.sln 실측 44/44 프로젝트, 약 30k 트리플.
+>
+> **⚠️ 전제 — 모든 프로젝트가 빌드되어야 함:** 추출기는 각 프로젝트를 **풀 빌드**(Buildalyzer `DesignTime=false`)해 소스를 캡처합니다(design-time 빌드는 net10-windows WPF의 `.xaml.cs`/ViewModel을 누락하기 때문). 따라서 **모든 NuGet 패키지(Telerik 포함)가 복원되고 솔루션 전체가 빌드되는 환경**에서 실행해야 합니다. 트레이드오프: design-time보다 느리고 대상 프로젝트의 bin/obj에 빌드 산출물을 씁니다. 빌드 실패 프로젝트는 로그의 `WARN: skipped …` / `WARN: project X failed` 및 끝의 요약으로 확인됩니다.
 
 ---
 
