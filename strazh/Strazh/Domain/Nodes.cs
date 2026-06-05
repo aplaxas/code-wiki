@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Strazh.Domain
@@ -44,6 +45,11 @@ namespace Strazh.Domain
 
         public string ToInspection() =>
             $$"""{ "Pk": {{Pk.Inspect()}}, "Label": {{Label.Inspect()}}, "FullName": {{FullName.Inspect()}}, "Name": {{Name.Inspect()}} }""";
+
+        private string[]? _extraLabels;
+        public void AddRoleLabels(IEnumerable<string> roles) => _extraLabels = roles.ToArray();
+        public IReadOnlyList<string> AllLabels =>
+            _extraLabels == null ? new[] { Label } : new[] { Label }.Concat(_extraLabels).ToArray();
     }
 
     // Code
