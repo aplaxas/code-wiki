@@ -1,0 +1,17 @@
+# Build artifacts
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+
+# ETL output
+out/
+*.ndjson
+
+# IDE
+.vs/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store

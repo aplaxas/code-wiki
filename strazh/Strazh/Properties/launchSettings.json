@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Strazh": {
+      "commandName": "Project",
+      "commandLineArgs": "-c \"neo4j:neo4j:strazhpass\" -p \"C:\\src\\github\\strazh\\SystemUnderTest\\Strazh.Tests.ProjectB\\Strazh.Tests.ProjectB.csproj\" \"C:\\src\\github\\strazh\\SystemUnderTest\\Strazh.Tests.ProjectA\\Strazh.Tests.ProjectA.csproj\""
+    }
+  }
+}
