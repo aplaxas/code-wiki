@@ -22,9 +22,21 @@ namespace Strazh.Domain
             SetPrimaryKey();
         }
 
+        protected static string StableHash(string text)
+        {
+            // FNV-1a 64-bit (deterministic across processes/runtimes)
+            ulong hash = 14695981039346656037UL;
+            foreach (char c in text)
+            {
+                hash ^= c;
+                hash *= 1099511628211UL;
+            }
+            return hash.ToString();
+        }
+
         protected virtual void SetPrimaryKey()
         {
-            Pk = FullName.GetHashCode().ToString();
+            Pk = StableHash(FullName);
         }
 
         public virtual string Set(string node) => 
@@ -100,7 +112,7 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = $"{FullName}{Arguments}{ReturnType}".GetHashCode().ToString();
+            Pk = StableHash($"{FullName}{Arguments}{ReturnType}");
         }
     }
 
