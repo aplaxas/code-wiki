@@ -147,4 +147,18 @@ namespace Strazh.Domain
             : base(user, usedType, new UsesTypeRelationship())
         { }
     }
+
+    public class TripleDefinesCommand : Triple
+    {
+        public TripleDefinesCommand(TypeNode owner, CommandNode command)
+            : base(owner, command, new DefinesCommandRelationship())
+        { }
+    }
+
+    public class TripleExecutes : Triple
+    {
+        public TripleExecutes(CommandNode command, MethodNode handler)
+            : base(command, handler, new ExecutesRelationship())
+        { }
+    }
 }

@@ -97,6 +97,38 @@ namespace Strazh.Analysis
                 : new ClassNode(fullName, named.Name);
         }
 
+        /// <summary>*Command 타입의 객체 생성에서 Command 멤버명과 핸들러 메서드를 연결.</summary>
+        public static void GetCommands(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
+        {
+            if (sem.GetDeclaredSymbol(declaration) is not INamedTypeSymbol owner) return;
+            var ownerFullName = (owner.ContainingNamespace?.ToString() ?? "") + "." + owner.Name;
+            var ownerNode = new ClassNode(ownerFullName, owner.Name);
+
+            foreach (var creation in declaration.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+            {
+                var typeName = creation.Type.ToString();
+                if (!typeName.Contains("Command")) continue;
+
+                // 대상 Command 멤버명: 할당식 좌변 또는 프로퍼티/필드 이니셜라이저
+                string? commandName = creation.Ancestors()
+                    .OfType<AssignmentExpressionSyntax>()
+                    .Select(a => (a.Left as IdentifierNameSyntax)?.Identifier.Text)
+                    .FirstOrDefault(n => n != null);
+                commandName ??= creation.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault()?.Identifier.Text
+                             ?? creation.Ancestors().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Identifier.Text;
+                if (commandName == null) continue;
+
+                var commandNode = new CommandNode($"{ownerFullName}.{commandName}", commandName);
+                triples.Add(new TripleDefinesCommand(ownerNode, commandNode));
+
+                var firstArg = creation.ArgumentList?.Arguments.FirstOrDefault()?.Expression;
+                if (firstArg == null) continue;
+                var info = sem.GetSymbolInfo(firstArg);
+                if ((info.Symbol ?? info.CandidateSymbols.FirstOrDefault()) is IMethodSymbol handler)
+                    triples.Add(new TripleExecutes(commandNode, handler.ToMethodNode()));
+            }
+        }
+
         /// <summary>메서드 파라미터/반환 타입의 도메인 타입 참조를 USES_TYPE으로 추출.</summary>
         public static void GetTypeUsages(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
         {

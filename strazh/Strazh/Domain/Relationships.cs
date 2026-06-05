@@ -56,4 +56,14 @@ namespace Strazh.Domain
     {
         public override string Type => "USES_TYPE";
     }
+
+    public class ExecutesRelationship : Relationship
+    {
+        public override string Type => "EXECUTES";
+    }
+
+    public class DefinesCommandRelationship : Relationship
+    {
+        public override string Type => "DEFINES_COMMAND";
+    }
 }

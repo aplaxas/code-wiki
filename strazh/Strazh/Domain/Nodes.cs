@@ -116,6 +116,12 @@ namespace Strazh.Domain
         }
     }
 
+    public class CommandNode : CodeNode
+    {
+        public CommandNode(string fullName, string name) : base(fullName, name) { }
+        public override string Label { get; } = "Command";
+    }
+
     // Structure
 
     public class FileNode : Node
