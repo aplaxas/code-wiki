@@ -184,8 +184,8 @@ public class StableKeyTests
         var a = new ClassNode("N.Foo", "Foo");
         var b = new ClassNode("N.Foo", "Foo");
         Assert.Equal(a.Pk, b.Pk);
-        // 결정적이고 알려진 값(FNV-1a 64-bit of "N.Foo")
-        Assert.Equal("11631250177439379887", a.Pk);
+        // 결정적이고 알려진 값(FNV-1a 64-bit of "N.Foo", char 단위)
+        Assert.Equal("16177116733985609327", a.Pk);
     }
 }
 ```

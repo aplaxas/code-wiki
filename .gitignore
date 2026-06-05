@@ -12,6 +12,9 @@ out/
 .vs/
 .idea/
 
+# Local MCP config (may contain secrets)
+.mcp.json
+
 # OS
 Thumbs.db
 .DS_Store
