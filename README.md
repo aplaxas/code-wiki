@@ -10,13 +10,22 @@ Vanuatu.sln ──(Roslyn 추출)──▶ triples.ndjson ──(배치 적재)�
 
 ## 0. 사전 준비
 
-| 항목 | 비고 |
-|---|---|
-| .NET SDK 9+ | ETL 도구 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 |
-| Docker | 로컬 Neo4j 실행용 |
-| Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` |
+| 항목 | 비고 | 팀원(적재만) | 관리자(재추출) |
+|---|---|:---:|:---:|
+| Docker | 로컬 Neo4j 실행용 | ✅ | ✅ |
+| **Git LFS** | 공유 NDJSON(`out/vanuatu.ndjson`, ~19MB)을 받기 위해 필수 | ✅ | ✅ |
+| .NET SDK 9+ | ETL 도구 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 | — | ✅ |
+| Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` | — | ✅ |
 
-> **커버리지:** 서버·서비스·DTO·인터페이스(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS`)와 **WPF 화면 측(`View`/`ViewModel`/`Command` → `BINDS_TO`/`EXECUTES`)까지 전체 커버**됩니다. Vanuatu.sln 실측 44/44 프로젝트, 약 30k 트리플.
+> **팀원은 추출(① )을 돌릴 필요가 없습니다.** 풀 커버리지 NDJSON이 Git LFS로 저장소에 포함돼 있으니, **Neo4j 기동(§1) → 적재(§2-②)** 두 단계만 하면 동일한 그래프가 만들어집니다. 추출(①)은 코드가 바뀌어 그래프를 새로 떠야 하는 관리자만 실행합니다.
+>
+> ```bash
+> # 클론 시 LFS 파일까지 받기 (이미 클론했다면 git lfs pull)
+> git lfs install
+> git clone <repo-url>     # 또는: git lfs pull
+> ```
+
+> **커버리지:** 서버·서비스·DTO·인터페이스(`IMPLEMENTS_METHOD`/`USES`/`USES_TYPE`/`REGISTERS`)와 **WPF 화면 측(`View`/`ViewModel`/`Command` → `BINDS_TO`/`EXECUTES`)까지 전체 커버**됩니다. Vanuatu.sln 실측 44/44 프로젝트, 약 **53k 트리플**(ViewModel 492, View 351, Command 1199, IMPLEMENTS_METHOD 4359, INVOKE 23044, Entity 378).
 >
 > **⚠️ 전제 — 모든 프로젝트가 빌드되어야 함:** 추출기는 각 프로젝트를 **풀 빌드**(Buildalyzer `DesignTime=false`)해 소스를 캡처합니다(design-time 빌드는 net10-windows WPF의 `.xaml.cs`/ViewModel을 누락하기 때문). 따라서 **모든 NuGet 패키지(Telerik 포함)가 복원되고 솔루션 전체가 빌드되는 환경**에서 실행해야 합니다. 트레이드오프: design-time보다 느리고 대상 프로젝트의 bin/obj에 빌드 산출물을 씁니다. 빌드 실패 프로젝트는 로그의 `WARN: skipped …` / `WARN: project X failed` 및 끝의 요약으로 확인됩니다.
 
@@ -24,24 +33,57 @@ Vanuatu.sln ──(Roslyn 추출)──▶ triples.ndjson ──(배치 적재)�
 
 ## 1. Neo4j 실행 (Docker)
 
-```bash
+모든 팀원이 **동일한 버전 + APOC 플러그인**을 쓰도록 버전 태그를 고정하고 `NEO4J_PLUGINS`로 APOC를 켭니다. APOC가 있어야 MCP의 스키마 조회(`get_neo4j_schema`)가 `apoc.meta.*`로 풀 스키마를 가져옵니다(없으면 라벨/관계 타입 목록만 보는 폴백으로 떨어짐).
+
+```powershell
+# 7474/7687 포트를 쓰는 기존 컨테이너가 있으면 먼저 정리 (선택)
+docker rm -f neo4j-vanuatu 2>$null
+
 docker run -d --name neo4j-vanuatu `
   -p 7474:7474 -p 7687:7687 `
   -e NEO4J_AUTH=neo4j/strazhpass `
-  neo4j:5
+  -e NEO4J_PLUGINS='["apoc"]' `
+  -v neo4j-vanuatu-data:/data `
+  neo4j:2026.05.0
 ```
 - 브라우저: http://localhost:7474 (id `neo4j` / pw `strazhpass`)
 - Bolt: `bolt://localhost:7687`
+- 데이터는 명명 볼륨 `neo4j-vanuatu-data`에 영속화됩니다(컨테이너를 지워도 유지). **완전 초기화**하려면 `docker rm -f neo4j-vanuatu; docker volume rm neo4j-vanuatu-data`.
+
+**APOC 설치 확인** (기동 15~30초 후):
+```powershell
+docker exec neo4j-vanuatu cypher-shell -u neo4j -p strazhpass "RETURN apoc.version() AS apoc;"
+```
+> 버전 문자열이 나오면 성공. `NEO4J_PLUGINS`가 버전에 맞는 APOC를 시작 시 자동으로 내려받아 설치합니다(인터넷 필요).
 
 ---
 
-## 2. ETL 실행 (2단계 — 권장)
+## 2. 그래프 적재
 
 도구 실행 형식: `dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- <옵션>`
 자격증명(`-c`)은 `DB이름:사용자:비밀번호` 형식입니다.
 
-### ① 추출: Vanuatu.sln → NDJSON
-```bash
+### ② 적재: NDJSON → Neo4j (wipe & reload) — **팀원 공통**
+
+저장소에 포함된 공유 NDJSON(`out/vanuatu.ndjson`, §0에서 `git lfs pull`로 받은 것)을 그대로 적재합니다. 팀원은 이 한 단계만 실행하면 됩니다.
+
+```powershell
+dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
+  -c "neo4j:neo4j:strazhpass" `
+  --load-ndjson out/vanuatu.ndjson `
+  -d true
+```
+→ 기존 그래프를 비우고(`-d true`) `UNWIND` 배치로 고속 적재 + **역할 라벨(`:ViewModel` 등)과 `REGISTERS.lifetime`을 SET**합니다. 완료 후 §3으로 검증하세요.
+
+> ⚠️ NDJSON이 LFS 포인터(텍스트 130바이트 남짓)로만 받아져 있으면 적재가 비어버립니다. `out/vanuatu.ndjson` 크기가 ~19MB인지 먼저 확인하고, 아니면 `git lfs pull`을 다시 실행하세요.
+
+---
+
+### ① 추출: Vanuatu.sln → NDJSON — **관리자(재생성) 전용**
+
+코드가 바뀌어 그래프를 새로 떠야 할 때만 실행합니다. **풀 빌드가 되는 환경**(모든 NuGet/Telerik 복원, §0 경고 참고)이 필요하며, 컴파일이 제일 느린 단계입니다.
+
+```powershell
 dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
   -c "neo4j:neo4j:strazhpass" `
   -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" `
@@ -49,21 +91,12 @@ dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
   -o ndjson `
   --ndjson-path out/vanuatu.ndjson
 ```
-→ `out/vanuatu.ndjson` 생성 (트리플 한 줄씩). 컴파일이 제일 느린 단계라, 한 번 떠두면 적재를 여러 번 재시도해도 재컴파일이 필요 없습니다.
+→ `out/vanuatu.ndjson` 갱신. 이후 위 ②로 적재하고, 결과가 정상이면 갱신된 NDJSON을 커밋(LFS)해 팀에 공유합니다.
 
-### ② 적재: NDJSON → Neo4j (wipe & reload)
-```bash
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
-  -c "neo4j:neo4j:strazhpass" `
-  --load-ndjson out/vanuatu.ndjson `
-  -d true
-```
-→ 기존 그래프를 비우고(`-d true`) `UNWIND` 배치로 고속 적재 + **역할 라벨(`:ViewModel` 등)과 `REGISTERS.lifetime`을 SET**합니다.
-
-> **반드시 이 2단계 경로를 쓰세요.** 아래 1단계 직접 적재(`-o neo4j`)는 역할 라벨과 관계 프로퍼티(lifetime)를 누락합니다.
+> **반드시 추출 → 적재 2단계 경로를 쓰세요.** 아래 1단계 직접 적재(`-o neo4j`)는 역할 라벨과 관계 프로퍼티(lifetime)를 누락합니다.
 
 ### (대안) 1단계 직접 적재 — 역할 라벨/lifetime 없음
-```bash
+```powershell
 dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
   -c "neo4j:neo4j:strazhpass" `
   -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" -t code
