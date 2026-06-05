@@ -267,7 +267,7 @@ namespace Strazh.Analysis
         /// <summary>
         /// Entry to analyze class or interface
         /// </summary>
-        public static void AnalyzeTree<T>(IList<Triple> triples, SyntaxTree st, SemanticModel sem, FolderNode rootFolder)
+        public static void AnalyzeTree<T>(IList<Triple> triples, SyntaxTree st, SemanticModel sem, FolderNode rootFolder, IList<ClassNode> collectedClasses = null)
             where T : TypeDeclarationSyntax
         {
             var root = st.GetRoot();
@@ -283,11 +283,27 @@ namespace Strazh.Analysis
                 var node = sem.GetDeclaredSymbol(declaration).CreateTypeNode(declaration);
                 if (node != null)
                 {
+                    // Assign role labels
+                    if (sem.GetDeclaredSymbol(declaration) is INamedTypeSymbol named)
+                        node.AddRoleLabels(RoleClassifier.Classify(named));
+
                     triples.Add(new TripleDeclaredAt(node, fileNode));
                     GetInherits(triples, declaration, sem, node);
                     GetMethodsAll(triples, declaration, sem, node);
+                    GetInterfaceImplementations(triples, declaration, sem);
+                    GetTypeUsages(triples, declaration, sem);
+                    GetCommands(triples, declaration, sem);
+                    GetRepositoryUsages(triples, declaration, sem);
+
+                    // Collect ClassNodes for post-pass
+                    if (node is ClassNode cn)
+                        collectedClasses?.Add(cn);
                 }
             }
+
+            // Call GetDiRegistrations once per tree, only in the ClassDeclarationSyntax pass
+            if (typeof(T) == typeof(ClassDeclarationSyntax))
+                GetDiRegistrations(triples, st, sem);
         }
 
         /// <summary>

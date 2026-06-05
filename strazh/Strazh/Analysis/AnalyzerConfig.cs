@@ -35,13 +35,16 @@
         public string Solution { get; }
         public string[] Projects { get; }
         public bool IsDelete { get; }
+        public string Output { get; }
+        public string NdjsonPath { get; }
 
         public bool IsSolutionBased => !string.IsNullOrEmpty(Solution);
 
         public bool IsValid => (!string.IsNullOrEmpty(Solution) && Projects.Length == 0)
             || (string.IsNullOrEmpty(Solution) && Projects.Length > 0);
 
-        public AnalyzerConfig(string credentials, string tier, string delete, string solution, string[] projects)
+        public AnalyzerConfig(string credentials, string tier, string delete, string solution, string[] projects,
+            string output = "neo4j", string ndjsonPath = "triples.ndjson")
         {
             solution = solution == "none" ? "" : solution;
             Credentials = new CredentialsConfig(credentials);
@@ -49,6 +52,8 @@
             IsDelete = delete != "false";
             Solution = solution;
             Projects = projects ?? new string[] { };
+            Output = string.IsNullOrEmpty(output) ? "neo4j" : output;
+            NdjsonPath = string.IsNullOrEmpty(ndjsonPath) ? "triples.ndjson" : ndjsonPath;
         }
 
         private Tiers MapTier(string mode)

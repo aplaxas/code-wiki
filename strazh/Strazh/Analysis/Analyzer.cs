@@ -91,7 +91,17 @@ namespace Strazh.Analysis
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: grouping - finished");
                 
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - starting");
-                await DbManager.InsertData(triples, config.Credentials, config.IsDelete && index == 0);
+                if (config.Output == "ndjson")
+                {
+                    var ndjsonPath = string.IsNullOrEmpty(config.NdjsonPath) ? "triples.ndjson" : config.NdjsonPath;
+                    using var writer = new StreamWriter(ndjsonPath, append: index != 0);
+                    foreach (var triple in triples)
+                        await writer.WriteLineAsync(NdjsonWriter.Serialize(triple));
+                }
+                else
+                {
+                    await DbManager.InsertData(triples, config.Credentials, config.IsDelete && index == 0);
+                }
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - finished");
             }
             context.Workspace.Dispose();
@@ -187,12 +197,14 @@ namespace Strazh.Analysis
                 Console.WriteLine($"Analyzing Code tier...");
                 var compilation = await item.project.GetCompilationAsync();
                 var syntaxTreeRoot = compilation.SyntaxTrees.Where(x => !x.FilePath.Contains("obj"));
+                var collectedClasses = new List<ClassNode>();
                 foreach (var st in syntaxTreeRoot)
                 {
                     var sem = compilation.GetSemanticModel(st);
-                    Extractor.AnalyzeTree<InterfaceDeclarationSyntax>(triples, st, sem, rootNode);
-                    Extractor.AnalyzeTree<ClassDeclarationSyntax>(triples, st, sem, rootNode);
+                    Extractor.AnalyzeTree<InterfaceDeclarationSyntax>(triples, st, sem, rootNode, collectedClasses);
+                    Extractor.AnalyzeTree<ClassDeclarationSyntax>(triples, st, sem, rootNode, collectedClasses);
                 }
+                Extractor.LinkViewsToViewModels(triples, collectedClasses);
                 Console.WriteLine($"Analyzing Code tier complete.");
             }
 

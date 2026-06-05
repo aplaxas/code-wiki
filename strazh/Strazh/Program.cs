@@ -45,12 +45,21 @@ namespace Strazh
             optionProjects.IsRequired = false;
             rootCommand.Add(optionProjects);
 
-            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects);
+            var optionOutput = new Option<string>("--output", "optional output destination: `neo4j` (default) or `ndjson`");
+            optionOutput.AddAlias("-o");
+            optionOutput.IsRequired = false;
+            rootCommand.Add(optionOutput);
+
+            var optionNdjsonPath = new Option<string>("--ndjson-path", "optional file path for ndjson output (default `triples.ndjson`); only used when --output=ndjson");
+            optionNdjsonPath.IsRequired = false;
+            rootCommand.Add(optionNdjsonPath);
+
+            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects, optionOutput, optionNdjsonPath);
 
             await rootCommand.InvokeAsync(args);
         }
 
-        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects)
+        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects, string output, string ndjsonPath)
         {
             try
             {
@@ -59,21 +68,27 @@ namespace Strazh
                        tier,
                        delete,
                        solution,
-                       projects
+                       projects,
+                       output,
+                       ndjsonPath
                    );
                 if (!config.IsValid)
                 {
                     Console.WriteLine("Please submit only one thing: `--solution` (-s) or `--projects` (-p)");
                     return;
                 }
-                var isNeo4jReady = await Healthcheck.IsNeo4jReady();
-                if (!isNeo4jReady)
+
+                if (config.Output != "ndjson")
                 {
-                    Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
-                    return;
+                    var isNeo4jReady = await Healthcheck.IsNeo4jReady();
+                    if (!isNeo4jReady)
+                    {
+                        Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
+                        return;
+                    }
                 }
 
-                Console.WriteLine($"Brewing a Code Knowledge Graph of tier \"{config.Tier}\".");                
+                Console.WriteLine($"Brewing a Code Knowledge Graph of tier \"{config.Tier}\".");
                 await Analyzer.Analyze(config);
                 Console.WriteLine("Code Knowledge Graph created.");
             }
