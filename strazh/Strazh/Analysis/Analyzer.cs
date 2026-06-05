@@ -93,7 +93,10 @@ namespace Strazh.Analysis
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - starting");
                 if (config.Output == "ndjson")
                 {
-                    var ndjsonPath = string.IsNullOrEmpty(config.NdjsonPath) ? "triples.ndjson" : config.NdjsonPath;
+                    var ndjsonPath = config.NdjsonPath;
+                    var dir = System.IO.Path.GetDirectoryName(ndjsonPath);
+                    if (!string.IsNullOrEmpty(dir))
+                        System.IO.Directory.CreateDirectory(dir);
                     using var writer = new StreamWriter(ndjsonPath, append: index != 0);
                     foreach (var triple in triples)
                         await writer.WriteLineAsync(NdjsonWriter.Serialize(triple));
