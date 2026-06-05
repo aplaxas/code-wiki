@@ -168,7 +168,7 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = $"{FullName}{Version}".GetHashCode().ToString();
+            Pk = StableHash($"{FullName}{Version}");
         }
     }
 }
