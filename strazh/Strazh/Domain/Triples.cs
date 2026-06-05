@@ -175,4 +175,11 @@ namespace Strazh.Domain
             : base(method, entity, new UsesRelationship())
         { }
     }
+
+    public class TripleRegisters : Triple
+    {
+        public TripleRegisters(InterfaceNode iface, ClassNode impl, string lifetime)
+            : base(iface, impl, new RegistersRelationship(lifetime))
+        { }
+    }
 }

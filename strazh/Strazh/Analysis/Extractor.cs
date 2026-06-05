@@ -203,6 +203,35 @@ namespace Strazh.Analysis
             }
         }
 
+        private static readonly System.Collections.Generic.Dictionary<string, string> RegisterMethods = new()
+        {
+            ["AddScoped"] = "Scoped", ["AddSingleton"] = "Singleton", ["AddTransient"] = "Transient",
+            ["RegisterScoped"] = "Scoped", ["RegisterSingleton"] = "Singleton", ["Register"] = "Transient",
+        };
+
+        /// <summary>DI 등록 호출 X&lt;I,Impl&gt;() 에서 인터페이스→구현 + lifetime 추출.</summary>
+        public static void GetDiRegistrations(IList<Triple> triples, SyntaxTree tree, SemanticModel sem)
+        {
+            foreach (var inv in tree.GetRoot().DescendantNodes().OfType<InvocationExpressionSyntax>())
+            {
+                GenericNameSyntax? generic = inv.Expression switch
+                {
+                    MemberAccessExpressionSyntax ma => ma.Name as GenericNameSyntax,
+                    GenericNameSyntax g => g,
+                    _ => null,
+                };
+                if (generic == null) continue;
+                if (!RegisterMethods.TryGetValue(generic.Identifier.Text, out var lifetime)) continue;
+                var typeArgs = generic.TypeArgumentList.Arguments;
+                if (typeArgs.Count != 2) continue;
+
+                if (sem.GetSymbolInfo(typeArgs[0]).Symbol is not INamedTypeSymbol ifaceSym) continue;
+                if (sem.GetSymbolInfo(typeArgs[1]).Symbol is not INamedTypeSymbol implSym) continue;
+                if (ifaceSym.ToTypeNode() is not InterfaceNode ifaceNode) continue;
+                triples.Add(new TripleRegisters(ifaceNode, new ClassNode(implSym.ToTypeNode().FullName, implSym.Name), lifetime));
+            }
+        }
+
         private static string GetName(string filePath)
             => filePath.Split(Path.DirectorySeparatorChar).Reverse().FirstOrDefault();
 

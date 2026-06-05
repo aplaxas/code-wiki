@@ -3,7 +3,8 @@ namespace Strazh.Domain
     public abstract class Relationship : IInspectable
     {
         public abstract string Type { get; }
-        
+        public virtual System.Collections.Generic.IReadOnlyDictionary<string, string> Properties
+            => new System.Collections.Generic.Dictionary<string, string>();
         public string ToInspection() => $$"""{ "Type": {{Type.Inspect()}} }""";
     }
 
@@ -75,5 +76,14 @@ namespace Strazh.Domain
     public class UsesRelationship : Relationship
     {
         public override string Type => "USES";
+    }
+
+    public class RegistersRelationship : Relationship
+    {
+        public RegistersRelationship(string lifetime) => Lifetime = lifetime;
+        public string Lifetime { get; }
+        public override string Type => "REGISTERS";
+        public override System.Collections.Generic.IReadOnlyDictionary<string, string> Properties
+            => new System.Collections.Generic.Dictionary<string, string> { ["lifetime"] = Lifetime };
     }
 }
