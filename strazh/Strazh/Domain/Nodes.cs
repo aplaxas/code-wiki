@@ -24,7 +24,7 @@ namespace Strazh.Domain
 
         protected static string StableHash(string text)
         {
-            // FNV-1a 64-bit (deterministic across processes/runtimes)
+            // FNV-1a 64-bit over UTF-16 code units (deterministic across processes/runtimes)
             ulong hash = 14695981039346656037UL;
             foreach (char c in text)
             {
@@ -112,7 +112,7 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = StableHash($"{FullName}{Arguments}{ReturnType}");
+            Pk = StableHash($"{FullName}|{Arguments}|{ReturnType}");
         }
     }
 
@@ -168,7 +168,7 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = StableHash($"{FullName}{Version}");
+            Pk = StableHash($"{FullName}|{Version}");
         }
     }
 }
