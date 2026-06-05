@@ -99,6 +99,8 @@ RETURN [n IN nodes(path) | n.name] AS cycle LIMIT 20;
 2. **생성자 주입 DI 미반영:** `USES_TYPE`는 일반 메서드만 추출하고 **생성자 파라미터는 추출하지 않습니다.** 따라서 "Singleton이 Scoped를 생성자 주입하는 captive dependency"는 현재 그래프만으로는 완전 탐지 불가 — `REGISTERS` 생명주기 + 프로젝트 `DEPENDS_ON` 수준까지만 가능. (향후 보강 항목)
 3. **라우트 문자열 경계(B)는 미구현:** HTTP 경로 기준 컨트롤러 연결은 후순위. 경계 관통은 공유 인터페이스(`IMPLEMENTS_METHOD`)로만 이뤄집니다.
 4. **이름 충돌:** `name`은 짧은 이름이라 네임스페이스 간 충돌 가능. 정밀 식별은 `fullName` 또는 `pk` 사용.
+5. **역할 라벨·`REGISTERS.lifetime`은 NDJSON 적재 경로에서만 채워집니다.** 반드시 `--output ndjson` → `--load-ndjson`로 적재하세요. 레거시 직접 적재 경로(`--output neo4j` 기본값)는 주 라벨만 쓰고 역할 라벨과 관계 프로퍼티(lifetime)를 누락하므로, `(:ViewModel)`/`(:Entity)` 같은 역할 라벨 질의나 `r.lifetime`이 **빈 결과**가 됩니다.
+6. **`BINDS_TO`는 프로젝트 단위 매칭:** View↔VM 연결이 프로젝트 내부에서만 이뤄집니다. View와 ViewModel이 서로 다른 프로젝트에 나뉘어 있으면 연결이 누락될 수 있습니다(대부분 Prism 모듈은 같은 프로젝트라 동작). 전역 매칭은 향후 보강 항목.
 
 ---
 
