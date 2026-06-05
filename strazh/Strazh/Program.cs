@@ -37,7 +37,7 @@ namespace Strazh
             optionDelete.IsRequired = false;
             rootCommand.Add(optionDelete);
 
-            var optionSolution = new Option<string>("--solution", "optional absolute path to only one `.sln` file (can't be used together with -s / --solution)");
+            var optionSolution = new Option<string>("--solution", "optional absolute path to only one `.sln` file (can't be used together with -p / --projects)");
             optionSolution.AddAlias("-s");
             optionSolution.IsRequired = false;
             rootCommand.Add(optionSolution);

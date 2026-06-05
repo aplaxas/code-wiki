@@ -15,5 +15,7 @@ public class BatchLoaderTests
         Assert.Contains("MERGE (b:Class { pk: row.b.pk })", cypher);
         Assert.Contains("MERGE (a)-[r:USES]->(b)", cypher);
         Assert.Contains("SET r += row.rel.props", cypher);
+        Assert.Contains("a.fullName = row.a.pk_source", cypher);
+        Assert.Contains("b.fullName = row.b.pk_source", cypher);
     }
 }

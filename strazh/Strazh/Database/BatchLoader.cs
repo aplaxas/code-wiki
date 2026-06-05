@@ -12,8 +12,8 @@ public static class BatchLoader
     /// <summary>(주 라벨 a, 주 라벨 b, 관계타입) 그룹별 UNWIND MERGE Cypher 생성.</summary>
     public static string MergeCypher(string labelA, string labelB, string relType) =>
         $"UNWIND $batch AS row " +
-        $"MERGE (a:{labelA} {{ pk: row.a.pk }}) SET a += row.a.props, a.name = row.a.name " +
-        $"MERGE (b:{labelB} {{ pk: row.b.pk }}) SET b += row.b.props, b.name = row.b.name " +
+        $"MERGE (a:{labelA} {{ pk: row.a.pk }}) SET a += row.a.props, a.name = row.a.name, a.fullName = row.a.pk_source " +
+        $"MERGE (b:{labelB} {{ pk: row.b.pk }}) SET b += row.b.props, b.name = row.b.name, b.fullName = row.b.pk_source " +
         $"MERGE (a)-[r:{relType}]->(b) SET r += row.rel.props";
 
     /// <summary>보조(역할) 라벨을 pk 기준으로 SET하는 Cypher 생성.</summary>
