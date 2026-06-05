@@ -27,7 +27,9 @@ public static class TestCompiler
 
     private static CSharpCompilation CreateCompilation(SyntaxTree[] trees)
     {
-        var tpa = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
+        var tpa = AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES") as string
+            ?? throw new InvalidOperationException(
+                "TRUSTED_PLATFORM_ASSEMBLIES is not set. Ensure the test host is running on .NET Core/5+.");
         var refs = tpa.Split(Path.PathSeparator)
             .Where(p => p.EndsWith(".dll"))
             .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
