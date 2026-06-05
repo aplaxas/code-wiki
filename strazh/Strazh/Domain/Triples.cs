@@ -133,4 +133,53 @@ namespace Strazh.Domain
             : base(interfaceA, interfaceB, new OfTypeRelationship())
         { }
     }
+
+    public class TripleImplementsMethod : Triple
+    {
+        public TripleImplementsMethod(MethodNode implementation, MethodNode interfaceMember)
+            : base(implementation, interfaceMember, new ImplementsMethodRelationship())
+        { }
+    }
+
+    public class TripleUsesType : Triple
+    {
+        public TripleUsesType(CodeNode user, TypeNode usedType)
+            : base(user, usedType, new UsesTypeRelationship())
+        { }
+    }
+
+    public class TripleDefinesCommand : Triple
+    {
+        public TripleDefinesCommand(TypeNode owner, CommandNode command)
+            : base(owner, command, new DefinesCommandRelationship())
+        { }
+    }
+
+    public class TripleExecutes : Triple
+    {
+        public TripleExecutes(CommandNode command, MethodNode handler)
+            : base(command, handler, new ExecutesRelationship())
+        { }
+    }
+
+    public class TripleBindsTo : Triple
+    {
+        public TripleBindsTo(ClassNode view, ClassNode viewModel)
+            : base(view, viewModel, new BindsToRelationship())
+        { }
+    }
+
+    public class TripleUses : Triple
+    {
+        public TripleUses(MethodNode method, TypeNode entity)
+            : base(method, entity, new UsesRelationship())
+        { }
+    }
+
+    public class TripleRegisters : Triple
+    {
+        public TripleRegisters(InterfaceNode iface, ClassNode impl, string lifetime)
+            : base(iface, impl, new RegistersRelationship(lifetime))
+        { }
+    }
 }

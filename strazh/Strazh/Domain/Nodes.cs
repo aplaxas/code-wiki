@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Strazh.Domain
@@ -22,9 +23,21 @@ namespace Strazh.Domain
             SetPrimaryKey();
         }
 
+        protected static string StableHash(string text)
+        {
+            // FNV-1a 64-bit over UTF-16 code units (deterministic across processes/runtimes)
+            ulong hash = 14695981039346656037UL;
+            foreach (char c in text)
+            {
+                hash ^= c;
+                hash *= 1099511628211UL;
+            }
+            return hash.ToString();
+        }
+
         protected virtual void SetPrimaryKey()
         {
-            Pk = FullName.GetHashCode().ToString();
+            Pk = StableHash(FullName);
         }
 
         public virtual string Set(string node) => 
@@ -32,6 +45,11 @@ namespace Strazh.Domain
 
         public string ToInspection() =>
             $$"""{ "Pk": {{Pk.Inspect()}}, "Label": {{Label.Inspect()}}, "FullName": {{FullName.Inspect()}}, "Name": {{Name.Inspect()}} }""";
+
+        private string[]? _extraLabels;
+        public void AddRoleLabels(IEnumerable<string> roles) => _extraLabels = roles.ToArray();
+        public IReadOnlyList<string> AllLabels =>
+            _extraLabels == null ? new[] { Label } : new[] { Label }.Concat(_extraLabels).ToArray();
     }
 
     // Code
@@ -100,8 +118,14 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = $"{FullName}{Arguments}{ReturnType}".GetHashCode().ToString();
+            Pk = StableHash($"{FullName}|{Arguments}|{ReturnType}");
         }
+    }
+
+    public class CommandNode : CodeNode
+    {
+        public CommandNode(string fullName, string name) : base(fullName, name) { }
+        public override string Label { get; } = "Command";
     }
 
     // Structure
@@ -156,7 +180,7 @@ namespace Strazh.Domain
 
         protected override void SetPrimaryKey()
         {
-            Pk = $"{FullName}{Version}".GetHashCode().ToString();
+            Pk = StableHash($"{FullName}|{Version}");
         }
     }
 }

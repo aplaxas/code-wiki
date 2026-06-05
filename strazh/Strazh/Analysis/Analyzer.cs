@@ -37,8 +37,12 @@ namespace Strazh.Analysis
             
             Console.WriteLine("Analyzing workspace...");
             
+            var failed = new List<string>();
             for (var index = 0; index < context.Projects.Count; index++)
             {
+                var projectName = context.Projects[index].Item1.Name;
+                try
+                {
                 var triples = new List<Triple>();
 
                 if (config.IsSolutionBased)
@@ -91,9 +95,30 @@ namespace Strazh.Analysis
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: grouping - finished");
                 
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - starting");
-                await DbManager.InsertData(triples, config.Credentials, config.IsDelete && index == 0);
+                if (config.Output == "ndjson")
+                {
+                    var ndjsonPath = config.NdjsonPath;
+                    var dir = System.IO.Path.GetDirectoryName(ndjsonPath);
+                    if (!string.IsNullOrEmpty(dir))
+                        System.IO.Directory.CreateDirectory(dir);
+                    using var writer = new StreamWriter(ndjsonPath, append: index != 0);
+                    foreach (var triple in triples)
+                        await writer.WriteLineAsync(NdjsonWriter.Serialize(triple));
+                }
+                else
+                {
+                    await DbManager.InsertData(triples, config.Credentials, config.IsDelete && index == 0);
+                }
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - finished");
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(projectName);
+                    Console.WriteLine($"WARN: project {projectName} failed, skipping its triples: {ex.GetType().Name}: {ex.Message}");
+                }
             }
+            if (failed.Count > 0)
+                Console.WriteLine($"Completed with {failed.Count} failed project(s): {string.Join(", ", failed)}");
             context.Workspace.Dispose();
         }
 
@@ -115,17 +140,26 @@ namespace Strazh.Analysis
 
             Console.WriteLine("Building projects - starting");
             
-            List<IAnalyzerResult> results = manager.Projects.Values
-                .Select(p =>
+            var results = new List<IAnalyzerResult>();
+            var skipped = new List<string>();
+            foreach (var p in manager.Projects.Values)
+            {
+                Console.WriteLine($"Building projects - {p.ProjectFile.Name} - starting");
+                var result = p.Build().FirstOrDefault();
+                Console.WriteLine($"Building projects - {p.ProjectFile.Name} - finished");
+                if (result == null)
                 {
-                    Console.WriteLine($"Building projects - {p.ProjectFile.Name} - starting");
-                    var result = p.Build().FirstOrDefault();
-                    Console.WriteLine($"Building projects - {p.ProjectFile.Name} - finished");
-                    return result;
-                })
-                .Where(x => x != null)
-                .ToList();
-            Console.WriteLine("Building projects - finished.");
+                    skipped.Add(p.ProjectFile.Name);
+                    Console.WriteLine($"WARN: skipped {p.ProjectFile.Name} - build produced no result (not analyzed).");
+                }
+                else
+                {
+                    results.Add(result);
+                }
+            }
+            Console.WriteLine($"Building projects - finished. {results.Count} built, {skipped.Count} skipped of {manager.Projects.Count} total.");
+            if (skipped.Count > 0)
+                Console.WriteLine($"Skipped projects (excluded from graph): {string.Join(", ", skipped)}");
 
             // Create a new workspace and add the solution (if there was one)
             AdhocWorkspace workspace = new AdhocWorkspace();
@@ -139,16 +173,22 @@ namespace Strazh.Analysis
                 results = [.. results.OrderBy(p => projectsInOrder.FindIndex(g => g.AbsolutePath == p.ProjectFilePath))];
             }
 
-            // Add each result to the new workspace (sorted in solution order above, if we have a solution)
+            // Add each built result to the workspace AND register it for analysis.
+            // AddToWorkspace(addProjectReferences:true) pulls a project's referenced
+            // projects into the workspace too; when we later reach such a project's own
+            // result it is already present. Previously those were SKIPPED, so most
+            // library projects (services, modules, DTOs) were never analyzed for code.
+            // Instead, reuse the already-present workspace Project handle so EVERY built
+            // project is analyzed (cross-project references are already wired).
             foreach (IAnalyzerResult result in results)
             {
-                // Check for duplicate project files and don't add them
-                if (workspace.CurrentSolution.Projects.All(p => p.FilePath != result.ProjectFilePath))
-                {
-                    var project = result.AddToWorkspace(workspace, true);
-                    projectResults.Add((project, result));
-                }
+                var existing = workspace.CurrentSolution.Projects
+                    .FirstOrDefault(p => p.FilePath == result.ProjectFilePath);
+                var project = existing ?? result.AddToWorkspace(workspace, true);
+                projectResults.Add((project, result));
             }
+
+            Console.WriteLine($"Workspace ready: analyzing {projectResults.Count} project(s) ({workspace.CurrentSolution.Projects.Count()} present in workspace).");
 
             return new AnalysisContext(workspace, projectResults.ToList());
         }
@@ -187,12 +227,14 @@ namespace Strazh.Analysis
                 Console.WriteLine($"Analyzing Code tier...");
                 var compilation = await item.project.GetCompilationAsync();
                 var syntaxTreeRoot = compilation.SyntaxTrees.Where(x => !x.FilePath.Contains("obj"));
+                var collectedClasses = new List<ClassNode>();
                 foreach (var st in syntaxTreeRoot)
                 {
                     var sem = compilation.GetSemanticModel(st);
-                    Extractor.AnalyzeTree<InterfaceDeclarationSyntax>(triples, st, sem, rootNode);
-                    Extractor.AnalyzeTree<ClassDeclarationSyntax>(triples, st, sem, rootNode);
+                    Extractor.AnalyzeTree<InterfaceDeclarationSyntax>(triples, st, sem, rootNode, collectedClasses);
+                    Extractor.AnalyzeTree<ClassDeclarationSyntax>(triples, st, sem, rootNode, collectedClasses);
                 }
+                Extractor.LinkViewsToViewModels(triples, collectedClasses);
                 Console.WriteLine($"Analyzing Code tier complete.");
             }
 

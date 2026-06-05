@@ -2,7 +2,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using Microsoft.Build.Logging.StructuredLogger;
+using Neo4j.Driver;
 using Strazh.Analysis;
+using Strazh.Database;
 using Task = System.Threading.Tasks.Task;
 
 namespace Strazh
@@ -15,7 +17,7 @@ namespace Strazh
 #if DEBUG
             // There is an issue with using Neo4j.Driver 4.2.0
             // System.IO.FileNotFoundException: Could not load file or assembly '4.2.37.0'. The system cannot find the file specified.
-            // Workaround to load assembly and avoid issue 
+            // Workaround to load assembly and avoid issue
             System.Reflection.Assembly.Load("Neo4j.Driver");
 #endif
             var rootCommand = new RootCommand();
@@ -45,35 +47,83 @@ namespace Strazh
             optionProjects.IsRequired = false;
             rootCommand.Add(optionProjects);
 
-            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects);
+            var optionOutput = new Option<string>("--output", "optional output destination: `neo4j` (default) or `ndjson`");
+            optionOutput.AddAlias("-o");
+            optionOutput.IsRequired = false;
+            rootCommand.Add(optionOutput);
+
+            var optionNdjsonPath = new Option<string>("--ndjson-path", "optional file path for ndjson output (default `triples.ndjson`); only used when --output=ndjson");
+            optionNdjsonPath.IsRequired = false;
+            rootCommand.Add(optionNdjsonPath);
+
+            var optionLoadNdjson = new Option<string>("--load-ndjson", "optional path to an NDJSON file to load directly into Neo4j (skips analysis)");
+            optionLoadNdjson.IsRequired = false;
+            rootCommand.Add(optionLoadNdjson);
+
+            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects, optionOutput, optionNdjsonPath, optionLoadNdjson);
 
             await rootCommand.InvokeAsync(args);
         }
 
-        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects)
+        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects, string output, string ndjsonPath, string loadNdjson)
         {
             try
             {
+                // --load-ndjson mode: skip analysis, load NDJSON file directly into Neo4j
+                if (!string.IsNullOrWhiteSpace(loadNdjson))
+                {
+                    var isNeo4jReady = await Healthcheck.IsNeo4jReady();
+                    if (!isNeo4jReady)
+                    {
+                        Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
+                        return;
+                    }
+
+                    var creds = new AnalyzerConfig.CredentialsConfig(credentials);
+                    bool wipe = delete != "false";
+                    const string CONNECTION = "neo4j://localhost:7687";
+                    var driver = GraphDatabase.Driver(CONNECTION, AuthTokens.Basic(creds.User, creds.Password));
+                    var session = driver.AsyncSession(o => o.WithDatabase(creds.Database));
+                    try
+                    {
+                        Console.WriteLine($"Loading NDJSON file \"{loadNdjson}\" into Neo4j database \"{creds.Database}\"...");
+                        await BatchLoader.LoadFileAsync(session, loadNdjson, wipe);
+                        Console.WriteLine("NDJSON load complete.");
+                    }
+                    finally
+                    {
+                        await session.CloseAsync();
+                        await driver.DisposeAsync();
+                    }
+                    return;
+                }
+
                 var config = new AnalyzerConfig(
                        credentials,
                        tier,
                        delete,
                        solution,
-                       projects
+                       projects,
+                       output,
+                       ndjsonPath
                    );
                 if (!config.IsValid)
                 {
                     Console.WriteLine("Please submit only one thing: `--solution` (-s) or `--projects` (-p)");
                     return;
                 }
-                var isNeo4jReady = await Healthcheck.IsNeo4jReady();
-                if (!isNeo4jReady)
+
+                if (config.Output != "ndjson")
                 {
-                    Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
-                    return;
+                    var isNeo4jReady = await Healthcheck.IsNeo4jReady();
+                    if (!isNeo4jReady)
+                    {
+                        Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
+                        return;
+                    }
                 }
 
-                Console.WriteLine($"Brewing a Code Knowledge Graph of tier \"{config.Tier}\".");                
+                Console.WriteLine($"Brewing a Code Knowledge Graph of tier \"{config.Tier}\".");
                 await Analyzer.Analyze(config);
                 Console.WriteLine("Code Knowledge Graph created.");
             }
