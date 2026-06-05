@@ -112,7 +112,12 @@ namespace Strazh.Analysis
                 // 대상 Command 멤버명: 할당식 좌변 또는 프로퍼티/필드 이니셜라이저
                 string? commandName = creation.Ancestors()
                     .OfType<AssignmentExpressionSyntax>()
-                    .Select(a => (a.Left as IdentifierNameSyntax)?.Identifier.Text)
+                    .Select(a => a.Left switch
+                    {
+                        IdentifierNameSyntax id => id.Identifier.Text,
+                        MemberAccessExpressionSyntax ma => ma.Name.Identifier.Text,
+                        _ => (string?)null
+                    })
                     .FirstOrDefault(n => n != null);
                 commandName ??= creation.Ancestors().OfType<PropertyDeclarationSyntax>().FirstOrDefault()?.Identifier.Text
                              ?? creation.Ancestors().OfType<VariableDeclaratorSyntax>().FirstOrDefault()?.Identifier.Text;
