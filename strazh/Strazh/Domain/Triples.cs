@@ -168,4 +168,11 @@ namespace Strazh.Domain
             : base(view, viewModel, new BindsToRelationship())
         { }
     }
+
+    public class TripleUses : Triple
+    {
+        public TripleUses(MethodNode method, TypeNode entity)
+            : base(method, entity, new UsesRelationship())
+        { }
+    }
 }

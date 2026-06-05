@@ -164,6 +164,27 @@ namespace Strazh.Analysis
             }
         }
 
+        /// <summary>메서드 본문이 참조하는 IRepository&lt;T&gt; 필드의 엔티티 T를 USES로 연결.</summary>
+        public static void GetRepositoryUsages(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
+        {
+            foreach (var method in declaration.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (sem.GetDeclaredSymbol(method) is not IMethodSymbol m) continue;
+                var methodNode = m.ToMethodNode();
+                var seen = new HashSet<string>();
+                foreach (var id in method.DescendantNodes().OfType<IdentifierNameSyntax>())
+                {
+                    if (sem.GetSymbolInfo(id).Symbol is not IFieldSymbol f) continue;
+                    if (f.Type is not INamedTypeSymbol nt) continue;
+                    if (!nt.Name.Contains("Repository") || nt.TypeArguments.Length != 1) continue;
+                    if (nt.TypeArguments[0] is not INamedTypeSymbol entity) continue;
+                    var entityNode = entity.ToTypeNode();
+                    if (seen.Add(entityNode.FullName))
+                        triples.Add(new TripleUses(methodNode, entityNode));
+                }
+            }
+        }
+
         /// <summary>이 타입이 구현하는 인터페이스 멤버를, 이 타입에서 구현한 메서드와 연결.</summary>
         public static void GetInterfaceImplementations(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
         {

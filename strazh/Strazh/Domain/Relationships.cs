@@ -71,4 +71,9 @@ namespace Strazh.Domain
     {
         public override string Type => "BINDS_TO";
     }
+
+    public class UsesRelationship : Relationship
+    {
+        public override string Type => "USES";
+    }
 }
