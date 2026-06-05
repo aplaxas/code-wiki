@@ -128,17 +128,26 @@ namespace Strazh.Analysis
 
             Console.WriteLine("Building projects - starting");
             
-            List<IAnalyzerResult> results = manager.Projects.Values
-                .Select(p =>
+            var results = new List<IAnalyzerResult>();
+            var skipped = new List<string>();
+            foreach (var p in manager.Projects.Values)
+            {
+                Console.WriteLine($"Building projects - {p.ProjectFile.Name} - starting");
+                var result = p.Build().FirstOrDefault();
+                Console.WriteLine($"Building projects - {p.ProjectFile.Name} - finished");
+                if (result == null)
                 {
-                    Console.WriteLine($"Building projects - {p.ProjectFile.Name} - starting");
-                    var result = p.Build().FirstOrDefault();
-                    Console.WriteLine($"Building projects - {p.ProjectFile.Name} - finished");
-                    return result;
-                })
-                .Where(x => x != null)
-                .ToList();
-            Console.WriteLine("Building projects - finished.");
+                    skipped.Add(p.ProjectFile.Name);
+                    Console.WriteLine($"WARN: skipped {p.ProjectFile.Name} - build produced no result (not analyzed).");
+                }
+                else
+                {
+                    results.Add(result);
+                }
+            }
+            Console.WriteLine($"Building projects - finished. {results.Count} built, {skipped.Count} skipped of {manager.Projects.Count} total.");
+            if (skipped.Count > 0)
+                Console.WriteLine($"Skipped projects (excluded from graph): {string.Join(", ", skipped)}");
 
             // Create a new workspace and add the solution (if there was one)
             AdhocWorkspace workspace = new AdhocWorkspace();
