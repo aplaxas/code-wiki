@@ -76,6 +76,27 @@ namespace Strazh.Analysis
                 declaration?.Modifiers.MapModifiers());
         }
 
+        public static MethodNode ToMethodNode(this IMethodSymbol symbol)
+            => symbol.CreateMethodNode();
+
+        /// <summary>이 타입이 구현하는 인터페이스 멤버를, 이 타입에서 구현한 메서드와 연결.</summary>
+        public static void GetInterfaceImplementations(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
+        {
+            if (sem.GetDeclaredSymbol(declaration) is not INamedTypeSymbol typeSymbol)
+                return;
+            foreach (var iface in typeSymbol.AllInterfaces)
+            {
+                foreach (var member in iface.GetMembers().OfType<IMethodSymbol>())
+                {
+                    if (typeSymbol.FindImplementationForInterfaceMember(member) is IMethodSymbol impl
+                        && SymbolEqualityComparer.Default.Equals(impl.ContainingType, typeSymbol))
+                    {
+                        triples.Add(new TripleImplementsMethod(impl.ToMethodNode(), member.ToMethodNode()));
+                    }
+                }
+            }
+        }
+
         private static string GetName(string filePath)
             => filePath.Split(Path.DirectorySeparatorChar).Reverse().FirstOrDefault();
 

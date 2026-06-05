@@ -46,4 +46,9 @@ namespace Strazh.Domain
     {
         public override string Type => "CONTAINS";
     }
+
+    public class ImplementsMethodRelationship : Relationship
+    {
+        public override string Type => "IMPLEMENTS_METHOD";
+    }
 }

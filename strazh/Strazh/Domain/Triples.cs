@@ -133,4 +133,11 @@ namespace Strazh.Domain
             : base(interfaceA, interfaceB, new OfTypeRelationship())
         { }
     }
+
+    public class TripleImplementsMethod : Triple
+    {
+        public TripleImplementsMethod(MethodNode implementation, MethodNode interfaceMember)
+            : base(implementation, interfaceMember, new ImplementsMethodRelationship())
+        { }
+    }
 }
