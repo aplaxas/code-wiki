@@ -37,8 +37,12 @@ namespace Strazh.Analysis
             
             Console.WriteLine("Analyzing workspace...");
             
+            var failed = new List<string>();
             for (var index = 0; index < context.Projects.Count; index++)
             {
+                var projectName = context.Projects[index].Item1.Name;
+                try
+                {
                 var triples = new List<Triple>();
 
                 if (config.IsSolutionBased)
@@ -106,7 +110,15 @@ namespace Strazh.Analysis
                     await DbManager.InsertData(triples, config.Credentials, config.IsDelete && index == 0);
                 }
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - finished");
+                }
+                catch (Exception ex)
+                {
+                    failed.Add(projectName);
+                    Console.WriteLine($"WARN: project {projectName} failed, skipping its triples: {ex.GetType().Name}: {ex.Message}");
+                }
             }
+            if (failed.Count > 0)
+                Console.WriteLine($"Completed with {failed.Count} failed project(s): {string.Join(", ", failed)}");
             context.Workspace.Dispose();
         }
 
@@ -161,16 +173,22 @@ namespace Strazh.Analysis
                 results = [.. results.OrderBy(p => projectsInOrder.FindIndex(g => g.AbsolutePath == p.ProjectFilePath))];
             }
 
-            // Add each result to the new workspace (sorted in solution order above, if we have a solution)
+            // Add each built result to the workspace AND register it for analysis.
+            // AddToWorkspace(addProjectReferences:true) pulls a project's referenced
+            // projects into the workspace too; when we later reach such a project's own
+            // result it is already present. Previously those were SKIPPED, so most
+            // library projects (services, modules, DTOs) were never analyzed for code.
+            // Instead, reuse the already-present workspace Project handle so EVERY built
+            // project is analyzed (cross-project references are already wired).
             foreach (IAnalyzerResult result in results)
             {
-                // Check for duplicate project files and don't add them
-                if (workspace.CurrentSolution.Projects.All(p => p.FilePath != result.ProjectFilePath))
-                {
-                    var project = result.AddToWorkspace(workspace, true);
-                    projectResults.Add((project, result));
-                }
+                var existing = workspace.CurrentSolution.Projects
+                    .FirstOrDefault(p => p.FilePath == result.ProjectFilePath);
+                var project = existing ?? result.AddToWorkspace(workspace, true);
+                projectResults.Add((project, result));
             }
+
+            Console.WriteLine($"Workspace ready: analyzing {projectResults.Count} project(s) ({workspace.CurrentSolution.Projects.Count()} present in workspace).");
 
             return new AnalysisContext(workspace, projectResults.ToList());
         }
