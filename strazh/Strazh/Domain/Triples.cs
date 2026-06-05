@@ -140,4 +140,11 @@ namespace Strazh.Domain
             : base(implementation, interfaceMember, new ImplementsMethodRelationship())
         { }
     }
+
+    public class TripleUsesType : Triple
+    {
+        public TripleUsesType(CodeNode user, TypeNode usedType)
+            : base(user, usedType, new UsesTypeRelationship())
+        { }
+    }
 }

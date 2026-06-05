@@ -51,4 +51,9 @@ namespace Strazh.Domain
     {
         public override string Type => "IMPLEMENTS_METHOD";
     }
+
+    public class UsesTypeRelationship : Relationship
+    {
+        public override string Type => "USES_TYPE";
+    }
 }

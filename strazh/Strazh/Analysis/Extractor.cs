@@ -79,6 +79,39 @@ namespace Strazh.Analysis
         public static MethodNode ToMethodNode(this IMethodSymbol symbol)
             => symbol.CreateMethodNode();
 
+        private static bool IsDomainType(ITypeSymbol? type, out INamedTypeSymbol named)
+        {
+            named = (type as INamedTypeSymbol)!;
+            if (named == null) return false;
+            if (named.TypeKind != TypeKind.Class && named.TypeKind != TypeKind.Interface) return false;
+            var ns = named.ContainingNamespace?.ToString() ?? "";
+            if (ns.StartsWith("System") || ns.StartsWith("Microsoft")) return false;
+            return true;
+        }
+
+        private static TypeNode ToTypeNode(this INamedTypeSymbol named)
+        {
+            var fullName = (named.ContainingNamespace?.ToString() ?? "") + "." + named.Name;
+            return named.TypeKind == TypeKind.Interface
+                ? new InterfaceNode(fullName, named.Name)
+                : new ClassNode(fullName, named.Name);
+        }
+
+        /// <summary>메서드 파라미터/반환 타입의 도메인 타입 참조를 USES_TYPE으로 추출.</summary>
+        public static void GetTypeUsages(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
+        {
+            foreach (var method in declaration.DescendantNodes().OfType<MethodDeclarationSyntax>())
+            {
+                if (sem.GetDeclaredSymbol(method) is not IMethodSymbol m) continue;
+                var methodNode = m.ToMethodNode();
+                foreach (var p in m.Parameters)
+                    if (IsDomainType(p.Type, out var nt))
+                        triples.Add(new TripleUsesType(methodNode, nt.ToTypeNode()));
+                if (IsDomainType(m.ReturnType, out var rt))
+                    triples.Add(new TripleUsesType(methodNode, rt.ToTypeNode()));
+            }
+        }
+
         /// <summary>이 타입이 구현하는 인터페이스 멤버를, 이 타입에서 구현한 메서드와 연결.</summary>
         public static void GetInterfaceImplementations(IList<Triple> triples, TypeDeclarationSyntax declaration, SemanticModel sem)
         {
