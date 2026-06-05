@@ -65,33 +65,23 @@ namespace Strazh.Analysis
                 triples.AddRange(projectTriples);
                 
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: grouping - starting");
-                try
+                // Compute the dedup/Cypher key per triple defensively: a single malformed
+                // triple (e.g. an unresolved symbol producing a node that throws in ToString)
+                // must not discard the whole project's triples. Skip and log the offender.
+                var keyed = new List<(string key, Triple triple)>();
+                foreach (var t in triples)
                 {
-                    triples = triples.GroupBy(x => x.ToString()).Select(x => x.First()).OrderBy(x => x.NodeA.Label)
-                        .ToList();
-                }
-                catch (Exception error)
-                {
-                    Console.WriteLine("Error detected. Dumping detailed logging data.");
-                    Console.WriteLine("[");
-                    var first = true;
-                    foreach (var triple in triples)
+                    try
                     {
-                        if (!first)
-                        {
-                            Console.WriteLine(",");
-                        }
-                        Console.Write($$"""{ "triple": {{ triple.ToInspection()}} }""");
-
-                        first = false;
+                        keyed.Add((t.ToString(), t));
                     }
-                    if (triples.Any())
+                    catch (Exception error)
                     {
-                        Console.WriteLine("");
+                        Console.WriteLine($"WARN: skipping malformed triple [{t.NodeA?.Label} -> {t.NodeB?.Label} : {t.Relationship?.Type}]: {error.Message}");
+                        try { Console.WriteLine($"  detail: {t.ToInspection()}"); } catch { /* best-effort */ }
                     }
-                    Console.WriteLine("]");
-                    throw;
                 }
+                triples = keyed.GroupBy(x => x.key).Select(x => x.First().triple).OrderBy(x => x.NodeA.Label).ToList();
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: grouping - finished");
                 
                 Console.WriteLine($"+ [{index + 1}/{context.Projects.Count} {context.Projects[index].Item1.Name}: inserting - starting");
@@ -145,7 +135,7 @@ namespace Strazh.Analysis
             foreach (var p in manager.Projects.Values)
             {
                 Console.WriteLine($"Building projects - {p.ProjectFile.Name} - starting");
-                var result = p.Build().FirstOrDefault();
+                var result = p.Build(new Buildalyzer.Environment.EnvironmentOptions { DesignTime = false }).FirstOrDefault();
                 Console.WriteLine($"Building projects - {p.ProjectFile.Name} - finished");
                 if (result == null)
                 {
