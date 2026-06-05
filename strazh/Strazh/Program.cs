@@ -2,7 +2,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using Microsoft.Build.Logging.StructuredLogger;
+using Neo4j.Driver;
 using Strazh.Analysis;
+using Strazh.Database;
 using Task = System.Threading.Tasks.Task;
 
 namespace Strazh
@@ -15,7 +17,7 @@ namespace Strazh
 #if DEBUG
             // There is an issue with using Neo4j.Driver 4.2.0
             // System.IO.FileNotFoundException: Could not load file or assembly '4.2.37.0'. The system cannot find the file specified.
-            // Workaround to load assembly and avoid issue 
+            // Workaround to load assembly and avoid issue
             System.Reflection.Assembly.Load("Neo4j.Driver");
 #endif
             var rootCommand = new RootCommand();
@@ -35,7 +37,7 @@ namespace Strazh
             optionDelete.IsRequired = false;
             rootCommand.Add(optionDelete);
 
-            var optionSolution = new Option<string>("--solution", "optional absolute path to only one `.sln` file (can't be used together with -p / --projects)");
+            var optionSolution = new Option<string>("--solution", "optional absolute path to only one `.sln` file (can't be used together with -s / --solution)");
             optionSolution.AddAlias("-s");
             optionSolution.IsRequired = false;
             rootCommand.Add(optionSolution);
@@ -54,15 +56,48 @@ namespace Strazh
             optionNdjsonPath.IsRequired = false;
             rootCommand.Add(optionNdjsonPath);
 
-            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects, optionOutput, optionNdjsonPath);
+            var optionLoadNdjson = new Option<string>("--load-ndjson", "optional path to an NDJSON file to load directly into Neo4j (skips analysis)");
+            optionLoadNdjson.IsRequired = false;
+            rootCommand.Add(optionLoadNdjson);
+
+            rootCommand.SetHandler(BuildKnowledgeGraph, optionCredentials, optionMode, optionDelete, optionSolution, optionProjects, optionOutput, optionNdjsonPath, optionLoadNdjson);
 
             await rootCommand.InvokeAsync(args);
         }
 
-        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects, string output, string ndjsonPath)
+        private static async Task BuildKnowledgeGraph(string credentials, string tier, string delete, string solution, string[] projects, string output, string ndjsonPath, string loadNdjson)
         {
             try
             {
+                // --load-ndjson mode: skip analysis, load NDJSON file directly into Neo4j
+                if (!string.IsNullOrWhiteSpace(loadNdjson))
+                {
+                    var isNeo4jReady = await Healthcheck.IsNeo4jReady();
+                    if (!isNeo4jReady)
+                    {
+                        Console.WriteLine("Strazh failed to start. There is no Neo4j instance ready to use.");
+                        return;
+                    }
+
+                    var creds = new AnalyzerConfig.CredentialsConfig(credentials);
+                    bool wipe = delete != "false";
+                    const string CONNECTION = "neo4j://localhost:7687";
+                    var driver = GraphDatabase.Driver(CONNECTION, AuthTokens.Basic(creds.User, creds.Password));
+                    var session = driver.AsyncSession(o => o.WithDatabase(creds.Database));
+                    try
+                    {
+                        Console.WriteLine($"Loading NDJSON file \"{loadNdjson}\" into Neo4j database \"{creds.Database}\"...");
+                        await BatchLoader.LoadFileAsync(session, loadNdjson, wipe);
+                        Console.WriteLine("NDJSON load complete.");
+                    }
+                    finally
+                    {
+                        await session.CloseAsync();
+                        await driver.DisposeAsync();
+                    }
+                    return;
+                }
+
                 var config = new AnalyzerConfig(
                        credentials,
                        tier,
