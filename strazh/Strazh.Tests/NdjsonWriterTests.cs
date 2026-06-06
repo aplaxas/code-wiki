@@ -24,6 +24,25 @@ public class NdjsonWriterTests
     }
 
     [Fact]
+    public void Serializes_method_node_signature_props()
+    {
+        // The NDJSON/batch load path must carry arguments+returnType onto the node
+        // (BatchLoader does `SET n += row.props`), so the graph can disambiguate
+        // overloaded/same-named methods by signature — not just by bare name.
+        var triple = new TripleImplementsMethod(
+            new MethodNode("N.OrderService.Search", "Search",
+                new[] { ("filter", "SearchOrderFilter"), ("page", "int") }, "Task<OrderDto>"),
+            new MethodNode("N.IOrderService.Search", "Search", new (string, string)[0], "int"));
+
+        var line = NdjsonWriter.Serialize(triple);
+        using var doc = JsonDocument.Parse(line);
+        var aProps = doc.RootElement.GetProperty("a").GetProperty("props");
+
+        Assert.Equal("Task<OrderDto>", aProps.GetProperty("returnType").GetString());
+        Assert.Equal("SearchOrderFilter filter, int page", aProps.GetProperty("arguments").GetString());
+    }
+
+    [Fact]
     public void Serializes_registers_relationship_props()
     {
         var triple = new TripleRegisters(

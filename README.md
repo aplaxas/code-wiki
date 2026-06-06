@@ -37,22 +37,22 @@ Vanuatu.sln ──(Roslyn 추출)──▶ triples.ndjson ──(배치 적재)�
 
 ```powershell
 # 7474/7687 포트를 쓰는 기존 컨테이너가 있으면 먼저 정리 (선택)
-docker rm -f neo4j-vanuatu 2>$null
+docker rm -f neo4j 2>$null
 
-docker run -d --name neo4j-vanuatu `
+docker run -d --name neo4j `
   -p 7474:7474 -p 7687:7687 `
   -e NEO4J_AUTH=neo4j/strazhpass `
   -e NEO4J_PLUGINS='["apoc"]' `
-  -v neo4j-vanuatu-data:/data `
+  -v neo4j:/data `
   neo4j:2026.05.0
 ```
 - 브라우저: http://localhost:7474 (id `neo4j` / pw `strazhpass`)
 - Bolt: `bolt://localhost:7687`
-- 데이터는 명명 볼륨 `neo4j-vanuatu-data`에 영속화됩니다(컨테이너를 지워도 유지). **완전 초기화**하려면 `docker rm -f neo4j-vanuatu; docker volume rm neo4j-vanuatu-data`.
+- 데이터는 명명 볼륨 `neo4j`에 영속화됩니다(컨테이너를 지워도 유지). **완전 초기화**하려면 `docker rm -f neo4j; docker volume rm neo4j`.
 
 **APOC 설치 확인** (기동 15~30초 후):
 ```powershell
-docker exec neo4j-vanuatu cypher-shell -u neo4j -p strazhpass "RETURN apoc.version() AS apoc;"
+docker exec neo4j cypher-shell -u neo4j -p strazhpass "RETURN apoc.version() AS apoc;"
 ```
 > 버전 문자열이 나오면 성공. `NEO4J_PLUGINS`가 버전에 맞는 APOC를 시작 시 자동으로 내려받아 설치합니다(인터넷 필요).
 

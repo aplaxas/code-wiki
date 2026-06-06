@@ -40,8 +40,16 @@ namespace Strazh.Domain
             Pk = StableHash(FullName);
         }
 
-        public virtual string Set(string node) => 
+        public virtual string Set(string node) =>
             $"{node}.pk = \"{Pk}\", {node}.fullName = \"{FullName}\", {node}.name = \"{Name}\"";
+
+        /// <summary>
+        /// Extra scalar properties carried onto the Neo4j node (beyond pk/name/fullName).
+        /// Mirrors what <see cref="Set"/> emits, but as a map so the NDJSON/batch load path
+        /// (which does <c>SET n += row.props</c>) preserves them. Base nodes carry none.
+        /// </summary>
+        public virtual IReadOnlyDictionary<string, string> NodeProperties
+            => new Dictionary<string, string>();
 
         public string ToInspection() =>
             $$"""{ "Pk": {{Pk.Inspect()}}, "Label": {{Label.Inspect()}}, "FullName": {{FullName.Inspect()}}, "Name": {{Name.Inspect()}} }""";
@@ -67,6 +75,16 @@ namespace Strazh.Domain
 
         public override string Set(string node)
             => $"{base.Set(node)}{(string.IsNullOrEmpty(Modifiers) ? "" : $", {node}.modifiers = \"{Modifiers}\"")}";
+
+        public override IReadOnlyDictionary<string, string> NodeProperties
+        {
+            get
+            {
+                var props = new Dictionary<string, string>(base.NodeProperties);
+                if (!string.IsNullOrEmpty(Modifiers)) props["modifiers"] = Modifiers;
+                return props;
+            }
+        }
     }
 
     public abstract class TypeNode : CodeNode
@@ -115,6 +133,19 @@ namespace Strazh.Domain
 
         public override string Set(string node)
             => $"{base.Set(node)}, {node}.returnType = \"{ReturnType}\", {node}.arguments = \"{Arguments}\"";
+
+        public override IReadOnlyDictionary<string, string> NodeProperties
+        {
+            get
+            {
+                var props = new Dictionary<string, string>(base.NodeProperties)
+                {
+                    ["returnType"] = ReturnType,
+                    ["arguments"] = Arguments,
+                };
+                return props;
+            }
+        }
 
         protected override void SetPrimaryKey()
         {
@@ -177,6 +208,9 @@ namespace Strazh.Domain
 
         public override string Set(string node)
             => $"{base.Set(node)}, {node}.version = \"{Version}\"";
+
+        public override IReadOnlyDictionary<string, string> NodeProperties
+            => new Dictionary<string, string>(base.NodeProperties) { ["version"] = Version };
 
         protected override void SetPrimaryKey()
         {
