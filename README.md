@@ -26,7 +26,7 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 |---|---|:---:|:---:|
 | Docker | 로컬 Neo4j 실행용 | ✅ | ✅ |
 | **Git LFS** | 공유 NDJSON(`out/vanuatu.ndjson`)을 받기 위해 필수 | ✅ | ✅ |
-| .NET SDK 9+ | ETL 도구 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 | — | ✅ |
+| .NET SDK 10 | ETL 도구 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 | — | ✅ |
 | Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` | — | ✅ |
 
 > **팀원은 추출을 돌릴 필요가 없습니다.** 풀 커버리지 NDJSON이 Git LFS로 포함돼 있으니 **Neo4j 기동(§1) → 적재(§2)** 두 단계만 하면 동일 그래프가 만들어집니다.

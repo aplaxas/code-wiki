@@ -2,7 +2,7 @@
 
 > **한시 문서.** Phase 1(Roslyn→Neo4j 코어 ETL) 구현 태스크. 설계 정본은 [codewiki-spec.md](codewiki-spec.md). **빌드 완료·완료 기준 충족 후 이 문서는 삭제한다.**
 >
-> 각 태스크는 red→green→refactor. 추출기는 `(ExtractionContext, Graph)`를 받아 append하는 독립 단위 — 파일 하나·테스트 하나로 격리. 위치 `src/CodeWiki/` + `src/CodeWiki.Tests/`, net9.0.
+> 각 태스크는 red→green→refactor. 추출기는 `(ExtractionContext, Graph)`를 받아 append하는 독립 단위 — 파일 하나·테스트 하나로 격리. 위치 `src/CodeWiki/` + `src/CodeWiki.Tests/`, **net10.0**.
 
 ## 진행 규칙
 - 태스크 순서 = 의존 순서(기반 → 추출기 → 적재 → 오케스트레이션). 추출기(T8~T16)는 T7까지 끝나면 서로 독립이라 병렬 가능.
@@ -15,7 +15,7 @@
 
 | # | 태스크 | 테스트 의도 (red) |
 |---|---|---|
-| 1 | **프로젝트 스캐폴드** | `CodeWiki`/`CodeWiki.Tests` 빌드·테스트 실행됨(net9.0) |
+| 1 | **프로젝트 스캐폴드** | `CodeWiki`/`CodeWiki.Tests` 빌드·테스트 실행됨(net10.0) |
 | 2 | **`Pk` (FNV-1a 64bit)** | 같은 입력→같은 해시(프로세스 불변), 다중 필드 `\|` 결합 충돌 없음 |
 | 3 | **`Node`/`Edge` record + `Graph`** | `AddNode`/`AddEdge` dedup(pk·엣지키), 같은 pk 재등장 시 props 병합(빈 값이 채운 값 안 덮음) |
 | 4 | **`Labels`/`Rel` 상수** | 전체 라벨·엣지 타입이 상수로 노출, 오타 시 컴파일 에러 |

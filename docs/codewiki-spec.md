@@ -287,7 +287,7 @@ src/CodeWiki/
 src/CodeWiki.Tests/   TestCompiler.cs  *ExtractorTests.cs
 ```
 
-타깃 net9.0(ETL 자체). 분석 대상은 Buildalyzer가 풀빌드.
+타깃 **net10.0**(ETL 자체 — 분석 대상 Vanuatu와 동일 .NET 10으로 통일). 분석 대상은 Buildalyzer가 풀빌드.
 
 ---
 

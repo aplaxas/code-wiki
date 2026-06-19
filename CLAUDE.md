@@ -38,7 +38,7 @@ strazh 트리비아가 아니라, Vanuatu를 Roslyn+Buildalyzer로 분석하는 
 
 ## 빌드·실행
 
-**CodeWiki (목표 CLI — 구현되면):** net9.0. 분석 대상은 Buildalyzer가 풀빌드.
+**CodeWiki (목표 CLI — 구현되면):** **net10.0**(분석 대상 Vanuatu와 동일 .NET 10으로 통일). 분석 대상은 Buildalyzer가 풀빌드.
 ```bash
 codewiki extract -s "<Vanuatu.sln>" -o out/graph.ndjson         # Neo4j 불필요, 파일만 생성
 codewiki load -c "neo4j:neo4j:<pass>" --ndjson out/graph.ndjson --wipe
