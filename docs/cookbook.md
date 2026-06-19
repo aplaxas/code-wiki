@@ -23,7 +23,7 @@
 | 기본키 | 프로퍼티(+제약) | `pk` (FNV-1a 해시) |
 | 외래키 / 다대다 조인테이블 | **관계(엣지)** | `(a)-[:CALLS]->(b)` |
 | JOIN | **패턴 매칭/순회** | `(a)-[:CALLS]->(b)` |
-| 조인테이블의 추가 컬럼 | **관계 프로퍼티** | `REGISTERS`의 `lifetime` |
+| 조인테이블의 추가 컬럼 | **관계 프로퍼티** | (코어 ETL엔 드묾; Phase 2에서 추가) |
 | 재귀 CTE | **가변 길이 경로** | `-[:CALLS*1..4]->` |
 | `WHERE`/`ORDER BY`/`DISTINCT` | 거의 동일 | — |
 
@@ -92,7 +92,6 @@ MATCH (h:Method {name:"ExecuteSearch"})-[:CALLS*1..4]->(t:Method) RETURN DISTINC
 | `INSTANTIATES` | Method → Class | 객체 생성(new) |
 | `USES` | Method → Entity | 서버 메서드가 `IRepository<T>`로 만지는 엔티티 |
 | `USES_TYPE` | Method → Type | 파라미터/반환/필드 타입 (영향도) |
-| `REGISTERS` | Interface → Class | DI 등록, `lifetime`∈{Scoped,Singleton,Transient} |
 | `DECLARED_IN` | Type → File | 선언 위치 |
 | `INCLUDED_IN`/`CONTAINS`/`DEPENDS_ON` | — | 파일시스템·프로젝트 구조 |
 
@@ -126,13 +125,12 @@ MATCH (v:View {name:$viewName})-[:BINDS_TO]->(vm:ViewModel)
 MATCH (vm)-[:DEFINES_COMMAND]->(cmd:Command)-[:EXECUTES]->(h:Method)
 MATCH (h)-[:CALLS*1..4]->(im:Method)<-[:IMPLEMENTS_METHOD]-(impl:Method)
 MATCH (impl)-[:USES]->(e:Entity)
-RETURN v.name, vm.name, cmd.name, h.name, im.fullName, impl.fullName, e.name, e.tableName;
+RETURN v.name, vm.name, cmd.name, h.name, im.fullName, impl.fullName, e.name;
 ```
 > Mermaid가 필요하면 결과를 `graph TD` 체인으로 변환(예시 §6).
 
-### ③ DI 등록·순환 의존 (탐지는 Cypher가)
+### ③ 프로젝트 순환 의존
 ```cypher
-MATCH (i:Interface)-[r:REGISTERS]->(impl:Class) RETURN i.name, impl.name, r.lifetime;
 MATCH path=(p:Project)-[:DEPENDS_ON*2..]->(p) RETURN [n IN nodes(path)|n.name] AS cycle LIMIT 20;
 ```
 
@@ -154,7 +152,7 @@ RETURN reached>0 AS connected, count(vm) AS vmCount ORDER BY connected;
 1. **ER부터:** `CALL db.schema.visualization()` — 라벨/관계 메타 그래프.
 2. **시작점 띄우기:** `MATCH (vm:ViewModel {name:'SearchOrderViewModel'}) RETURN vm` → 노드가 캔버스에 뜸.
 3. **클릭-확장:** 노드를 더블클릭하면 인접 관계가 펼쳐진다. `DEFINES_COMMAND`→Command→`EXECUTES`→핸들러→`CALLS`→인터페이스 메서드(허브)→`IMPLEMENTS_METHOD`로 서버 서비스→`USES`→Entity까지 손으로 걸어간다.
-4. **한 화면에 체인 전부:** §4-② 쿼리를 그대로 실행하면 경로가 통째로 시각화됨. Entity 노드를 클릭하면 `tableName` 속성이 보인다.
+4. **한 화면에 체인 전부:** §4-② 쿼리를 그대로 실행하면 경로가 통째로 시각화됨. 종착 Entity 노드(예: `Order`)가 DB 종착점.
 
 > 화살표 방향: `(im)<-[:IMPLEMENTS_METHOD]-(impl)`는 화살표가 왼쪽을 향함 = "impl이 im을 구현". 방향만 맞으면 어느 쪽으로 그려도 매칭된다.
 
@@ -174,7 +172,7 @@ graph TD
     H -- CALLS --> MID["내부: GetSearchOrder"]
     MID -- CALLS --> IFACE["인터페이스(경계): IOrderService.SearchOrdersAsync"]
     IMPL["서버: OrderService.SearchOrdersAsync"] -. IMPLEMENTS_METHOD .-> IFACE
-    IMPL -- USES --> E["Entity: Order {tableName}"]
+    IMPL -- USES --> E["Entity: Order"]
 ```
 
 재현 Cypher:
@@ -183,7 +181,7 @@ MATCH (v:View {name:'SearchOrderView'})-[:BINDS_TO]->(vm:ViewModel)
 MATCH (vm)-[:DEFINES_COMMAND]->(cmd:Command {name:'SearchCommand'})-[:EXECUTES]->(h:Method)
 MATCH p=(h)-[:CALLS*1..4]->(im:Method {name:'SearchOrdersAsync'})<-[:IMPLEMENTS_METHOD]-(impl:Method)
 MATCH (impl)-[:USES]->(e:Entity)
-RETURN vm.name, cmd.name, [n IN nodes(p)|n.name] AS chain, impl.fullName, e.name, e.tableName;
+RETURN vm.name, cmd.name, [n IN nodes(p)|n.name] AS chain, impl.fullName, e.name;
 ```
 
 ### 예제 B — 타입 변경 영향도 (SearchInvoiceFilter)
@@ -206,7 +204,7 @@ RETURN DISTINCT caller.fullName, collect(DISTINCT m.name) AS calls ORDER BY call
 ## 7. ⚠️ 질의 시 유의 (그래프의 한계)
 
 1. **타입 레벨 영향도:** `USES_TYPE`는 파라미터/반환/필드 타입을 잡는다(상위집합 — 누락보다 과검출이 안전). 최종 확인은 컴파일러로.
-2. **생성자 주입 DI 한계:** captive dependency(Singleton이 Scoped 주입) 완전 탐지는 `REGISTERS.lifetime` + `DEPENDS_ON` 수준까지만.
+2. **DI 그래프 없음:** `REGISTERS`는 비목표(사용자가 DI 직접 관리). 경계 봉합은 `IMPLEMENTS_METHOD` 허브로 충분.
 3. **라우트 문자열 경계(B) 미구현:** 경계 관통은 `IMPLEMENTS_METHOD`로만. HTTP 경로 매칭은 비목표.
 4. **이름 충돌:** `name`은 짧아 동명 가능. 정밀 식별은 `fullName`/`pk`.
 5. **빈 결과 ≠ 코드에 없음:** 빌드 실패 모듈 등 커버리지 한계([spec §9](codewiki-spec.md) 불변식)부터 의심. `MATCH (n) RETURN n` 전체 스캔 금지 — 라벨·프로퍼티로 시작점을 좁혀라.

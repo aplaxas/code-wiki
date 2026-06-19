@@ -145,14 +145,13 @@ record Edge(string Type, string FromPk, string ToPk,
 | 체인 | `EXECUTES` | Command → 핸들러 메서드 |
 | 체인 | `BINDS_TO` | View → ViewModel |
 | 체인 | `USES` | 메서드 → `IRepository<T>`/Entity |
-| DI | `REGISTERS` | 인터페이스 → 구현 (props `lifetime`) |
 
 > **개명 이력(참조 strazh 선례 → CodeWiki):** `HAVE→DECLARES`, `OF_TYPE→`{`INHERITS`(베이스 클래스) + `IMPLEMENTS`(인터페이스, 분리)`}`, `CONSTRUCT→INSTANTIATES`, `INVOKE→CALLS`, `DECLARED_AT→DECLARED_IN`.
 > `INHERITS`(클래스 상속)와 `IMPLEMENTS`(인터페이스 구현, 타입 레벨)는 **분리**한다 — strazh가 둘을 `OF_TYPE` 하나로 뭉갠 것과 다름. 메서드 레벨 봉합은 `IMPLEMENTS_METHOD`(별개).
 
-### 6.3 종착점 — Entity + tableName
+### 6.3 종착점 — Entity
 
-체인의 끝은 **Entity 노드**다. 별도 `:Table` 노드는 만들지 않는다(EF 매핑이 단순 1:1이면 과잉). 대신 **Entity 노드 props에 `tableName`**을 채운다 — `[Table("...")]` 속성 / `DbContext` Fluent 설정을 Roslyn으로 읽어 한 칸. Browser에서 Entity를 클릭하면 물리 테이블명이 속성으로 보인다.
+체인의 끝은 **DAL Entity 노드**(예: `Torba.DAL.Model.Order`)다. 이 Entity 이름이 곧 DB 종착점으로 충분하다 — 별도 `:Table` 노드도, 물리 테이블명(`tableName`) 추출도 하지 않는다. (Vanuatu는 EF Fluent `modelBuilder.Entity<X>().ToTable("...")` 매핑이지만 `DbContext`까지 파싱할 가치가 없다 — YAGNI.)
 
 ---
 
@@ -166,8 +165,7 @@ record Edge(string Type, string FromPk, string ToPk,
 | Type 단위 | `TypeExtractor` | Class/Interface 노드, `DECLARED_IN`, `INHERITS`, `IMPLEMENTS`, `DECLARES`, `CALLS`, `INSTANTIATES`, 역할 라벨 |
 | Type 단위 | `InterfaceImplementationExtractor` | `IMPLEMENTS_METHOD` (경계 봉합 허브) |
 | Type 단위 | `CommandExtractor` | `DEFINES_COMMAND`, `EXECUTES` |
-| Type 단위 | `RepositoryUsageExtractor` | `USES`(Repo→Entity, `tableName` 포함), `USES_TYPE` |
-| Tree 1회 | `DiRegistrationExtractor` | `REGISTERS`(+`lifetime`) |
+| Type 단위 | `RepositoryUsageExtractor` | `USES`(Repo→Entity), `USES_TYPE` |
 | Solution 후처리 | `ViewModelLinker` | `BINDS_TO` (View↔VM 네이밍 컨벤션) |
 
 ### Vanuatu에 최적화된 핵심 추출 (이 도구의 가치)
@@ -187,7 +185,7 @@ record Edge(string Type, string FromPk, string ToPk,
 - `Neo4jLoader`: `Graph`(메모리든 NDJSON 로드든) → **UNWIND 배치 MERGE. Cypher 생성은 여기 한 곳뿐.**
   - 노드: `MERGE (n {pk}) SET n += props, n.name=…, n.fullName=…` + 역할 라벨 `SET n:Role`.
   - 엣지: `(from,to,type)` 그룹별 `UNWIND … MERGE (a)-[r:TYPE]->(b) SET r += props`.
-  - 메모리 경로·NDJSON 경로가 **같은 코드**를 타므로 역할 라벨·`lifetime` 누락이 구조적으로 불가능.
+  - 메모리 경로·NDJSON 경로가 **같은 코드**를 타므로 역할 라벨 누락이 구조적으로 불가능.
 - **Wipe & Reload**: 매 실행 `MATCH (n) DETACH DELETE n` 후 전체 재적재(유지보수 단계라 증분 불필요). `(Label, pk)` 유니크 제약으로 MERGE 정합성 보장.
 
 ### CLI
@@ -233,7 +231,7 @@ codewiki load -c <db:user:pass> --ndjson <out/graph.ndjson> [--wipe]
                                                           ▼
                                           [Repository: IRepository<Order>]
                                                           ▼
-                                  [Entity: Order  {tableName: "Orders"}]  ── DB 종착점
+                                  [Entity: Order]  ── DB 종착점 (DAL Entity 이름)
 
    ※ 컨트롤러(OrderController, [Route("api/pos")])는 라우트 문자열로만 연결되는 별도 경로(B, 후순위).
 ```
@@ -256,7 +254,7 @@ strazh와의 동치 diff·베이스라인 카운트는 **완료 기준이 아니
 - 라우트 문자열(HTTP 경로) 매칭(경로 B) — 인터페이스 조인으로 충분.
 - 프로퍼티 레벨 멤버접근(`dto.X`) — 타입 레벨로 충분.
 - 증분 적재 — wipe & reload로 충분.
-- DI 안티패턴 *탐지* — 등록 사실만 추출, 탐지는 소비 시점 Cypher/LLM.
+- **DI 등록·생명주기·안티패턴 (`REGISTERS`) — 전면 비목표.** 사용자가 DI를 직접 관리하며, 경계 봉합은 `IMPLEMENTS_METHOD` 허브가 하므로 DI 그래프는 핵심 목적(VM→Entity 내비게이션)에 불필요. 필요해지면 추출기 하나로 후속 복원(§13).
 - `CallRawSQL`(raw SQL) 경유, `Vanuatu.DTOGenerator` 산출물 — 사각지대로 기록.
 
 ---
@@ -281,8 +279,7 @@ src/CodeWiki/
   Model/      Node.cs Edge.cs Graph.cs  Pk.cs  Labels.cs  Rel.cs
   Extraction/ ExtractionContext.cs  StructureExtractor.cs  TypeExtractor.cs
               InterfaceImplementationExtractor.cs  CommandExtractor.cs
-              RepositoryUsageExtractor.cs  DiRegistrationExtractor.cs
-              ViewModelLinker.cs  RoleClassifier.cs
+              RepositoryUsageExtractor.cs  ViewModelLinker.cs  RoleClassifier.cs
   Storage/    GraphSerializer.cs  Neo4jLoader.cs  Neo4jHealthcheck.cs
 src/CodeWiki.Tests/   TestCompiler.cs  *ExtractorTests.cs
 ```

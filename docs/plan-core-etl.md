@@ -5,7 +5,7 @@
 > 각 태스크는 red→green→refactor. 추출기는 `(ExtractionContext, Graph)`를 받아 append하는 독립 단위 — 파일 하나·테스트 하나로 격리. 위치 `src/CodeWiki/` + `src/CodeWiki.Tests/`, **net10.0**.
 
 ## 진행 규칙
-- 태스크 순서 = 의존 순서(기반 → 추출기 → 적재 → 오케스트레이션). 추출기(T8~T16)는 T7까지 끝나면 서로 독립이라 병렬 가능.
+- 태스크 순서 = 의존 순서(기반 → 추출기 → 적재 → 오케스트레이션). 추출기(T8~T15)는 T7까지 끝나면 서로 독립이라 병렬 가능.
 - 엣지/라벨 이름은 [spec §6.2](codewiki-spec.md) 정본을 따른다(`DECLARES`/`CALLS`/`INHERITS`/`IMPLEMENTS`/`INSTANTIATES`/`DECLARED_IN`).
 - 매직스트링 금지 — `Labels`/`Rel` 상수만 사용.
 
@@ -23,7 +23,7 @@
 | 6 | **`TestCompiler` 이식** | 소스 문자열 → `Compilation`+`SemanticModel` 헬퍼 동작 |
 | 7 | **`RoleClassifier`** | 휴리스틱별 역할 라벨 부여(Entity/ViewModel/Controller/Service/Repository/DTO/View), 애매하면 생략 |
 
-## 추출기 (T8~T16) — 스코프별 격리
+## 추출기 (T8~T15) — 스코프별 격리
 
 | # | 태스크 | 산출 엣지/노드 | 테스트 의도 |
 |---|---|---|---|
@@ -32,22 +32,21 @@
 | 10 | **`InterfaceImplementationExtractor`** | `IMPLEMENTS_METHOD` | 클라·서버 구현이 같은 인터페이스 멤버를 가리킴(`FindImplementationForInterfaceMember`). **경계 봉합 허브** |
 | 11 | **`CommandExtractor`** | `DEFINES_COMMAND`(VM→Command), `EXECUTES`(Command→핸들러) | `new DelegateCommand(ExecuteX)` 인자 메서드 참조 |
 | 12 | **`TypeUsageExtractor`** | `USES_TYPE`(메서드→타입) | 파라미터/반환/필드 타입 + 객체생성(타입 레벨, 상위집합) |
-| 13 | **`RepositoryUsageExtractor`** | `USES`(메서드→Entity) + Entity `tableName` | 본문 `IRepository<T>` 필드 → 제네릭 인자 Entity. `[Table]`/Fluent로 `tableName` props |
-| 14 | **`DiRegistrationExtractor`** (Tree 스코프) | `REGISTERS`(인터페이스→구현, `lifetime`) | DI 등록 문장에서 lifetime 추출 |
-| 15 | **`ViewModelLinker`** (후처리) | `BINDS_TO`(View→VM) | Prism `AutoWireViewModel` 네이밍(`XView`→`XViewModel`) |
-| 16 | **`StructureExtractor`** (Solution 1회) | Solution/Project/Folder/File/Package, `INCLUDED_IN`/`CONTAINS`/`DEPENDS_ON` | 프로젝트·패키지 의존, 파일시스템 계층 |
+| 13 | **`RepositoryUsageExtractor`** | `USES`(메서드→Entity) | 본문 `IRepository<T>` 필드 → 제네릭 인자 Entity. **물리 테이블명/DbContext 파싱은 비목표** — DAL Entity까지 |
+| 14 | **`ViewModelLinker`** (후처리) | `BINDS_TO`(View→VM) | Prism `AutoWireViewModel` 네이밍(`XView`→`XViewModel`) |
+| 15 | **`StructureExtractor`** (Solution 1회) | Solution/Project/Folder/File/Package, `INCLUDED_IN`/`CONTAINS`/`DEPENDS_ON` | 프로젝트·패키지 의존, 파일시스템 계층 |
 
-## 적재·오케스트레이션 (T17~T21)
+## 적재·오케스트레이션 (T16~T20)
 
 | # | 태스크 | 테스트 의도 |
 |---|---|---|
-| 17 | **`GraphSerializer` (Graph ↔ NDJSON)** | 노드/엣지 라운드트립 동일(직렬화→역직렬화→동치) |
-| 18 | **`Neo4jLoader` + Healthcheck** | **Cypher 생성 유일 지점.** 노드 `MERGE … SET n += props` + 역할 라벨 `SET n:Role`, 엣지 그룹별 `UNWIND … MERGE`. 메모리/NDJSON 경로가 **같은 Cypher** 생성 |
-| 19 | **`WorkspaceBuilder`** (불변식 캡슐화) | 풀빌드(`DesignTime=false`) + `addProjectReferences:false` + 프로젝트 try/catch. [spec §9](codewiki-spec.md) 불변식 4종을 한 곳에 가둠 |
-| 20 | **`AnalysisPipeline`** | 스코프별 추출기 루프 실행 → Graph 누적. 한 프로젝트 실패가 전체를 안 죽임 |
-| 21 | **`Program` CLI** | `extract -s <sln> -o <ndjson>`(Neo4j 불필요) / `load -c <db:user:pass> --ndjson <f> [--wipe]` |
+| 16 | **`GraphSerializer` (Graph ↔ NDJSON)** | 노드/엣지 라운드트립 동일(직렬화→역직렬화→동치) |
+| 17 | **`Neo4jLoader` + Healthcheck** | **Cypher 생성 유일 지점.** 노드 `MERGE … SET n += props` + 역할 라벨 `SET n:Role`, 엣지 그룹별 `UNWIND … MERGE`. 메모리/NDJSON 경로가 **같은 Cypher** 생성 |
+| 18 | **`WorkspaceBuilder`** (불변식 캡슐화) | 풀빌드(`DesignTime=false`) + `addProjectReferences:false` + 프로젝트 try/catch. [spec §9](codewiki-spec.md) 불변식 4종을 한 곳에 가둠 |
+| 19 | **`AnalysisPipeline`** | 스코프별 추출기 루프 실행 → Graph 누적. 한 프로젝트 실패가 전체를 안 죽임 |
+| 20 | **`Program` CLI** | `extract -s <sln> -o <ndjson>`(Neo4j 불필요) / `load -c <db:user:pass> --ndjson <f> [--wipe]` |
 
-## 완료 검증 (T22)
+## 완료 검증 (T21)
 
 > ⚠️ **strazh 동치 diff·베이스라인 카운트는 완료 기준이 아니다.** 완료 = [spec §11](codewiki-spec.md): 3대 목적 성립 + 자기 정합성.
 
@@ -55,7 +54,7 @@
 
 1. **무단절 연결** — [cookbook §4-④](cookbook.md) 연결성 쿼리로 임의 ViewModel → Entity 경로 존재 확인. 대표 화면(SearchOrder) E2E가 수동 검증과 일치([cookbook §6](cookbook.md)).
 2. **커버리지** — 44개 프로젝트 0 실패. **빈 스텁 없음**(고유 ViewModel 수가 비정상적으로 적으면 불변식 #2 재발 — [spec §9](codewiki-spec.md)).
-3. **단일 적재 정합** — 역할 라벨·`REGISTERS.lifetime`이 그래프에 정상 존재(단일 경로라 누락 불가).
+3. **단일 적재 정합** — 역할 라벨이 그래프에 정상 존재(단일 경로라 누락 불가).
 
 ---
 
