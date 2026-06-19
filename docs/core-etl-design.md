@@ -1,8 +1,8 @@
-# [구현 계획] CodeWiki 코어 ETL — Phase 1 (TDD)
+# [설계] CodeWiki 코어 ETL — Phase 1 (태스크·스코프)
 
-> **한시 문서.** Phase 1(Roslyn→Neo4j 코어 ETL) 구현 태스크. 설계 정본은 [codewiki-spec.md](codewiki-spec.md). **빌드 완료·완료 기준 충족 후 이 문서는 삭제한다.**
+> **코어 ETL(Roslyn→Neo4j) 컴포넌트 설계.** 21개 태스크의 책임·스코프·산출을 한눈에 본다. 전체 스펙은 [codewiki-spec.md](codewiki-spec.md), **바이트사이즈 실행 단계는 [core-etl-plan.md](core-etl-plan.md)**.
 >
-> 각 태스크는 red→green→refactor. 추출기는 `(ExtractionContext, Graph)`를 받아 append하는 독립 단위 — 파일 하나·테스트 하나로 격리. 위치 `src/CodeWiki/` + `src/CodeWiki.Tests/`, **net10.0**.
+> 각 태스크는 red→green→refactor. 추출기는 `(ExtractionContext, Graph)`를 받아 append하는 독립 단위 — 파일 하나·테스트 하나로 격리. 위치 `src/CodeWiki/` + `src/CodeWiki.Tests/`, **net10.0**. (Phase 1 빌드 완료 후 design·plan 모두 정리 대상.)
 
 ## 진행 규칙
 - 태스크 순서 = 의존 순서(기반 → 추출기 → 적재 → 오케스트레이션). 추출기(T8~T15)는 T7까지 끝나면 서로 독립이라 병렬 가능.

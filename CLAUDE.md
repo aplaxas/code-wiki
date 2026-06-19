@@ -22,7 +22,8 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 |---|---|
 | [docs/codewiki-spec.md](docs/codewiki-spec.md) | **설계 정본** — 왜·무엇·어떻게(문제·3대목적·스키마·추출기·완료기준) |
 | [docs/cookbook.md](docs/cookbook.md) | **질의·학습** — Neo4j 이해(SQL대조) + 검증 Cypher + Browser 내비게이션 |
-| [docs/plan-core-etl.md](docs/plan-core-etl.md) | **한시** — Phase 1 TDD 태스크. 빌드 완료 후 삭제 |
+| [docs/core-etl-design.md](docs/core-etl-design.md) | **한시** — Phase 1 코어 ETL 태스크·스코프 설계 |
+| [docs/core-etl-plan.md](docs/core-etl-plan.md) | **한시** — Phase 1 바이트사이즈 TDD 실행 계획. 빌드 완료 후 design·plan 정리 |
 | [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md) | Phase 2(시맨틱 주입) 요약 — 코어 ETL 완료 후 진행 |
 
 ## Vanuatu 분석 불변식 (CodeWiki가 반드시 지킬 것)

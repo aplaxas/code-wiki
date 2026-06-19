@@ -2,7 +2,7 @@
 
 > 거대 C# 솔루션 **Vanuatu**(WPF + ASP.NET Core)를 Roslyn으로 정적 분석해 **Neo4j 코드 지식 그래프**로 적재하는 ETL. 화면→DB End-to-End 호출 흐름을 끊김 없이 잇는 것이 목표다.
 >
-> 이 문서는 *왜·무엇·어떻게*를 담는 **단일 설계 정본**이다. 질의·활용은 [cookbook.md](cookbook.md), 구현 태스크는 [plan-core-etl.md](plan-core-etl.md), 운영·실행은 [../CLAUDE.md](../CLAUDE.md).
+> 이 문서는 *왜·무엇·어떻게*를 담는 **단일 설계 정본**이다. 질의·활용은 [cookbook.md](cookbook.md), 코어 ETL 컴포넌트 설계는 [core-etl-design.md](core-etl-design.md)·실행 단계는 [core-etl-plan.md](core-etl-plan.md), 운영·실행은 [../CLAUDE.md](../CLAUDE.md).
 
 ```
 Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MERGE)──▶ Neo4j ──(mcp-neo4j-cypher / Browser)──▶ LLM·사람
