@@ -100,10 +100,59 @@ MATCH (h)-[:CALLS*1..4]->(im:Method)<-[:IMPLEMENTS_METHOD]-(impl:Method)-[:USES]
 RETURN v.name, vm.name, c.name, e.name LIMIT 10;
 ```
 > 결과가 0건이면 코드에 없는 게 아니라 **빌드 커버리지** 문제일 수 있습니다(§0). 더 많은 패턴은 [docs/cookbook.md](docs/cookbook.md).
+>
+> **표 vs 그래프:** 위처럼 `RETURN v.name`(스칼라)은 **Table**로만 나옵니다. Browser 캔버스에 원·화살표로 그리려면 **노드·경로 자체**를 반환하세요 — `RETURN v, vm, c, e` 또는 경로를 잡아 `MATCH p=(...) RETURN p`.
 
 ---
 
-## 6. LLM 연동 (MCP)
+## 6. Cypher 기본 문법 (빠른 입문)
+
+SQL을 안다면 5분이면 충분합니다. SQL 대조·전체 레시피는 [docs/cookbook.md](docs/cookbook.md) §1·§4.
+
+**문장 골격** — `MATCH`(=FROM/JOIN) → `WHERE`(=WHERE) → `RETURN`(=SELECT).
+```cypher
+MATCH (vm:ViewModel)              // (변수:라벨)  — 노드는 소괄호
+WHERE vm.name STARTS WITH 'Order'
+RETURN vm.name                    // 스칼라 → Table
+ORDER BY vm.name LIMIT 10;
+```
+
+**관계(엣지)는 화살표** — `-[:타입]->`. 방향이 의미를 가짐.
+```cypher
+MATCH (c:Class {name:'OrderService'})-[:DECLARES]->(m:Method)   // {prop:값} = 인라인 WHERE
+RETURN c.name, m.name;
+```
+
+| 개념 | 문법 | 비고 |
+|---|---|---|
+| 노드 | `(n:Label)` · `(n:Label {name:'X'})` | 라벨 = 테이블, `{}` = 등치 필터 |
+| 관계 | `(a)-[:REL]->(b)` | 방향 필수. 양방향은 `-[:REL]-` |
+| 가변 길이(재귀) | `-[:CALLS*1..4]->` | 1~4홉. 재귀 CTE 대체 |
+| 여러 관계 타입 | `-[:CALLS\|EXECUTES]->` | OR |
+| 경로 변수 | `p=(a)-[...]->(b)` | `RETURN p` → **그래프 시각화** |
+| 외부조인 | `OPTIONAL MATCH` | 없으면 NULL |
+| 집계 | `count(x)`, `collect(x)` | 비집계 키가 암시적 GROUP BY |
+| 중복 제거 | `RETURN DISTINCT ...` | |
+| 상위 N | `LIMIT 10` (`SKIP n LIMIT m`) | |
+
+**Table로 보고 싶나, 그래프로 보고 싶나** — RETURN이 결정합니다.
+```cypher
+RETURN vm.name, c.name          // 스칼라 → Table (LLM·분석용)
+RETURN vm, c, p                 // 노드·경로 → 그래프 캔버스 (눈으로 추적)
+```
+
+**메타 확인** (스키마 모를 때):
+```cypher
+CALL db.labels();                  // 라벨 목록
+CALL db.relationshipTypes();       // 관계 타입 목록
+CALL db.schema.visualization();    // ER 다이어그램(메타 그래프)
+```
+
+> 라벨·엣지·프로퍼티 전체 스키마(실측 수치 포함)는 [docs/cookbook.md](docs/cookbook.md) §2.
+
+---
+
+## 7. LLM 연동 (MCP)
 
 읽기전용 계정 + 쿡북 주입으로 LLM이 정확한 Cypher를 작성하게 합니다.
 - 설정: [docs/mcp/README.md](docs/mcp/README.md)

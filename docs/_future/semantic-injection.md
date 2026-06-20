@@ -1,6 +1,8 @@
 # [Phase 2 요약] 시맨틱 컨텍스트 주입
 
-> **이 문서는 다음 단계(Phase 2)의 요약 보존본이다.** Phase 1(코어 ETL, Roslyn→Neo4j)이 끝난 뒤 별도 spec→plan 사이클로 진행한다. 지금은 *목적과 기본 절차만* 기록한다. (원본 PRD/계획은 본 요약으로 대체됨.)
+> **⚠️ 이 문서는 대체되었다 → [docs/codewiki-v2-spec.md](../codewiki-v2-spec.md)가 v2 설계 정본이다.**
+> 아래는 strazh 시절 가정이 섞인 초기 요약 stub(보존용). 2026-06-20 grill 세션에서 입자·필드 계약·
+> 영속 경로·갱신·MVP 게이트를 명시화해 v2-spec으로 확정했으니, 진행은 그 문서를 따른다.
 >
 > 전제: Phase 1 그래프가 완성돼 있어야 한다. 시맨틱은 **그 그래프에 props를 더 얹는 일**이다 — 스키마 변경 0([codewiki-spec.md](../codewiki-spec.md) §13 확장 지점).
 

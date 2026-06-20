@@ -1,0 +1,23 @@
+{
+  "skill_name": "codewiki-graph-doc",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "SearchOrderView 화면에서 검색 버튼(SearchCommand)을 누르면 DB의 어떤 엔티티까지 흐르는지 End-to-End로 추적해서 Mermaid 다이어그램이랑 같이 문서로 만들어줘.",
+      "expected_output": "docs/graphDoc/ 아래에 Markdown 파일 생성. View→VM→Command→핸들러→인터페이스(SearchOrdersAsync)→서버 OrderService→Entity Order 체인을 Mermaid graph TD로, 경로 단계 표, 근거 Cypher 포함. 실제 그래프 질의 기반(지어내지 않음).",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "SearchOrderViewModel이 가진 모든 커맨드랑, 각 커맨드가 어떤 서버 서비스 구현이랑 엔티티에 닿는지 한눈에 보이게 정리한 문서 하나 만들어줘. 서버 안 거치는 UI 커맨드도 표시해줘.",
+      "expected_output": "docs/graphDoc/ 아래에 Markdown. 커맨드별 표(커맨드|인터페이스 메서드|서버 구현|종착 엔티티). SearchCommand/ExportExcelCommand/ChangePageCommand는 OrderService.SearchOrdersAsync, ShowOrderDetailsCommand는 GetOrderAsync/GetOrderItemsAsync. Edit/Reset/DoubleClick은 서버 미경유로 별도 표기. 근거 Cypher 포함.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "OrderDTO 타입을 수정하려고 하는데 영향 범위가 궁금해. 이거 바꾸면 깨질 수 있는 메서드랑 ViewModel/서비스 전부 영향도 리포트로 만들어줘.",
+      "expected_output": "docs/graphDoc/ 아래에 Markdown. 1차(USES_TYPE 직접 참조) 표 + 2차(호출 전파) 표. 소유 타입의 역할(ViewModel/Service/Controller) 구분. 클라/서버 양쪽 영향 해석 문단. 근거 Cypher 포함. USES_TYPE 상위집합 한계 언급.",
+      "files": []
+    }
+  ]
+}
