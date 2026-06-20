@@ -12,9 +12,9 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 
 ## 현재 상태 (중요)
 
-- **CodeWiki는 미착수.** `src/CodeWiki/`는 아직 없다. 설계·계획 문서가 먼저 확정된 단계다(2026-06-19).
-- **현 그래프는 참조 구현 strazh가 생성한 것**(`out/vanuatu.ndjson`). strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 — **CodeWiki는 strazh에 종속되지 않고 클린룸으로 새로 쓴다.** strazh 산출물·스키마를 따르지 않는다.
-- CodeWiki 완성·검증 후 `strazh/` 디렉터리는 제거한다.
+- **CodeWiki 코어 ETL Phase 1 완료(2026-06-20).** `src/CodeWiki/`(net10.0) 구현·통합검증 끝. 단위테스트 42/42, Vanuatu.sln 실측 **21,300 노드 / 72,522 엣지 / 42 프로젝트 0 실패**, 빈 스텁 없음(ViewModel 499), 커맨드 90.4% 백엔드 허브 도달, SearchOrder E2E가 Entity까지 연결, 적재 ~14초(공유 `:Node` 라벨 + pk 인덱스).
+- **CodeWiki가 이제 그래프 생성의 정본 경로.** `out/graph.ndjson`이 산출물. strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 — 종속 0(클린룸). 검증 끝났으니 `strazh/` 디렉터리는 정리 대상.
+- 후속(차단 아님): NU1903 transitive 취약점 패키지 핀, CALLS 프레임워크 노이즈 도메인 필터(필요시), Phase 2(시맨틱 주입) — [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md).
 
 ## 문서 (단일 출처)
 
@@ -39,21 +39,14 @@ strazh 트리비아가 아니라, Vanuatu를 Roslyn+Buildalyzer로 분석하는 
 
 ## 빌드·실행
 
-**CodeWiki (목표 CLI — 구현되면):** **net10.0**(분석 대상 Vanuatu와 동일 .NET 10으로 통일). 분석 대상은 Buildalyzer가 풀빌드.
+**CodeWiki (정본, net10.0).** 분석 대상은 Buildalyzer가 풀빌드(모든 NuGet/Telerik 복원 환경 필요). 추출 ~9분, 적재 ~14초.
 ```bash
-codewiki extract -s "<Vanuatu.sln>" -o out/graph.ndjson         # Neo4j 불필요, 파일만 생성
-codewiki load -c "neo4j:neo4j:<pass>" --ndjson out/graph.ndjson --wipe
+dotnet build src/CodeWiki/CodeWiki.csproj -c Release
+dotnet test                                                       # 42/42
+dotnet run --project src/CodeWiki -c Release -- extract -s "<Vanuatu.sln>" -o out/graph.ndjson   # Neo4j 불필요
+dotnet run --project src/CodeWiki -c Release -- load -c "neo4j:neo4j:strazhpass" --ndjson out/graph.ndjson --wipe
 ```
-
-**현재(임시) — strazh로 그래프 생성:** CodeWiki 완성 전까지 유일한 실행 수단.
-```bash
-dotnet build strazh/Strazh/Strazh.csproj -c Release
-dotnet test  strazh/Strazh.Tests/Strazh.Tests.csproj
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- \
-  -c "neo4j:neo4j:strazhpass" -s "<Vanuatu.sln>" -t code -o ndjson --ndjson-path out/vanuatu.ndjson   # 추출
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- \
-  -c "neo4j:neo4j:strazhpass" --load-ndjson out/vanuatu.ndjson -d true                                 # 적재
-```
+Neo4j 기동·MCP 연동은 [README.md](README.md) §1·§4. strazh 실행법은 참조 디렉터리 `strazh/`에만 보존(정리 대상).
 
 ## 비밀정보
 
