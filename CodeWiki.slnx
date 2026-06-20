@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CodeWiki.Tests/CodeWiki.Tests.csproj" />
+    <Project Path="src/CodeWiki/CodeWiki.csproj" />
+  </Folder>
+</Solution>
