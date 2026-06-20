@@ -6,7 +6,7 @@
 Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MERGE)──▶ Neo4j ──(mcp-neo4j-cypher / Browser)──▶ LLM·사람
 ```
 
-> **현재 상태:** CodeWiki는 미착수(`src/CodeWiki/` 없음). 설계·계획이 먼저 확정된 단계다. 현 그래프는 *처음 Neo4j를 접한 MIT 참조 프로젝트* **strazh**가 생성한 것(`out/vanuatu.ndjson`, 레거시 스키마). CodeWiki는 strazh에 **종속되지 않고 클린룸으로 새로 쓰며**, 완성·검증 후 `strazh/`를 제거한다.
+> **현재 상태:** CodeWiki 코어 ETL **Phase 1 완료(2026-06-20).** `src/CodeWiki/`(net10.0)가 그래프 생성의 **정본 경로**다. Vanuatu.sln 실측 **21,300 노드 / 72,522 엣지 / 42 프로젝트 0 실패**, 산출물은 `out/graph.ndjson`. strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 종속 0(클린룸) — `strazh/`는 정리 대상.
 
 ## 문서
 
@@ -26,20 +26,26 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 | 항목 | 비고 | 팀원(적재만) | 관리자(재추출) |
 |---|---|:---:|:---:|
 | Docker | 로컬 Neo4j 실행용 | ✅ | ✅ |
-| **Git LFS** | 공유 NDJSON(`out/vanuatu.ndjson`)을 받기 위해 필수 | ✅ | ✅ |
-| .NET SDK 10 | ETL 도구 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 | — | ✅ |
+| .NET SDK 10 | CodeWiki 빌드용. 분석 대상(net10-windows WPF 등)은 Buildalyzer가 빌드 | ✅ | ✅ |
+| 공유 `out/graph.ndjson` | 관리자가 추출해 공유한 산출물(약 12.7MB) | ✅ | — |
 | Vanuatu 소스 | `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln` | — | ✅ |
 
-> **팀원은 추출을 돌릴 필요가 없습니다.** 풀 커버리지 NDJSON이 Git LFS로 포함돼 있으니 **Neo4j 기동(§1) → 적재(§2)** 두 단계만 하면 동일 그래프가 만들어집니다.
-> ```bash
-> git lfs install && git lfs pull     # NDJSON 실제 파일 받기
-> ```
+> **팀원은 추출(~9분)을 돌릴 필요가 없습니다.** 관리자가 만든 `out/graph.ndjson`만 있으면 **빌드(§1) → Neo4j 기동(§2) → 적재(§3)**로 동일 그래프가 만들어집니다. 코드가 바뀌어 재추출이 필요할 때만 관리자 경로(§4)를 씁니다.
 >
-> **⚠️ 빌드 전제 — 모든 프로젝트가 빌드되어야 함:** 추출기는 각 프로젝트를 **풀 빌드**(Buildalyzer `DesignTime=false`)해 소스를 캡처합니다(design-time 빌드는 WPF `.xaml.cs`/ViewModel을 누락). 따라서 **모든 NuGet(Telerik 포함)이 복원·빌드되는 환경**에서만 전체 커버리지(44/44 프로젝트)가 나옵니다. (상세 [CLAUDE.md](CLAUDE.md) 불변식)
+> **⚠️ 빌드 전제 — 모든 프로젝트가 빌드되어야 함(관리자 추출 시):** 추출기는 각 프로젝트를 **풀 빌드**(Buildalyzer `DesignTime=false`)해 소스를 캡처합니다(design-time 빌드는 WPF `.xaml.cs`/ViewModel을 누락). 따라서 **모든 NuGet(Telerik 포함)이 복원·빌드되는 환경**에서만 전체 커버리지(42/42 프로젝트)가 나옵니다. (상세 [CLAUDE.md](CLAUDE.md) 불변식)
 
 ---
 
-## 1. Neo4j 실행 (Docker)
+## 1. CodeWiki 빌드
+
+```bash
+dotnet build src/CodeWiki/CodeWiki.csproj -c Release
+dotnet test                                                # 42/42 통과 확인(선택)
+```
+
+---
+
+## 2. Neo4j 실행 (Docker)
 
 동일 버전 + APOC 플러그인 고정. APOC가 있어야 MCP 스키마 조회가 풀 스키마를 가져옵니다.
 
@@ -55,46 +61,49 @@ docker run -d --name neo4j -p 7474:7474 -p 7687:7687 `
 
 ---
 
-## 2. 그래프 적재 (현재 — strazh)
+## 3. 그래프 적재 (팀원 — 공유 NDJSON) — 약 14초
 
-> CodeWiki 완성 전까지의 임시 경로. CodeWiki가 서면 `codewiki load -c <db:user:pass> --ndjson out/graph.ndjson --wipe`로 대체된다.
-
-### 팀원 — 공유 NDJSON 적재 (wipe & reload)
+자격증명은 `db:user:pass` 형식(`db`는 현재 미사용). `--wipe`는 기존 그래프를 비우고 전체 재적재.
 ```powershell
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
-  -c "neo4j:neo4j:strazhpass" --load-ndjson out/vanuatu.ndjson -d true
+dotnet run --project src/CodeWiki -c Release -- `
+  load -c "neo4j:neo4j:strazhpass" --ndjson out/graph.ndjson --wipe
 ```
-> ⚠️ NDJSON이 LFS 포인터(텍스트 수백 바이트)로만 받아지면 적재가 비어버립니다. 파일 크기를 먼저 확인하고 아니면 `git lfs pull`.
-
-### 관리자 — 재추출 (코드 변경 시)
-```powershell
-dotnet run --project strazh/Strazh/Strazh.csproj -c Release -- `
-  -c "neo4j:neo4j:strazhpass" `
-  -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" `
-  -t code -o ndjson --ndjson-path out/vanuatu.ndjson
-```
-> **반드시 추출 → 적재 2단계**(NDJSON 경유)를 쓰세요. strazh의 1단계 직접 적재(`-o neo4j`)는 역할 라벨·`REGISTERS.lifetime`을 누락합니다. (CodeWiki는 단일 적재 경로로 이 함정을 구조적으로 제거 — [spec §8](docs/codewiki-spec.md))
+→ `loaded: 21300 nodes, 72522 edges (wipe=True)`. 적재는 공유 `:Node` 라벨 + pk 인덱스로 ~14초.
 
 ---
 
-## 3. 적재 검증
+## 4. 그래프 추출 (관리자 — 코드 변경 시) — 약 9분
+
+먼저 NDJSON을 만든 뒤(§4) 적재(§3)합니다. 추출은 Neo4j가 필요 없습니다(파일만 생성).
+```powershell
+dotnet run --project src/CodeWiki -c Release -- `
+  extract -s "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu\Vanuatu.sln" `
+  -o out/graph.ndjson
+```
+→ `extracted: 21300 nodes, 72522 edges → out/graph.ndjson`. `WARN: project ... failed`가 보이면 그 프로젝트가 빌드되지 않은 것 → NuGet 복원·빌드 환경을 확인하세요(§0).
+
+> **추출·적재 분리가 핵심:** 컴파일이 느리니(9분) NDJSON을 한 번 떠두고, Cypher·스키마 튜닝은 `load`만 14초로 반복합니다. 단일 적재 경로(Graph→Neo4jLoader, Cypher 생성 한 곳)라 역할 라벨 누락 같은 함정이 구조적으로 없습니다. ([spec §8](docs/codewiki-spec.md))
+
+---
+
+## 5. 적재 검증
 
 Neo4j Browser(http://localhost:7474):
 ```cypher
-MATCH (n) RETURN count(n);
+MATCH (n) RETURN count(n);                                     // 21300
 MATCH ()-[r]->() RETURN type(r), count(*) ORDER BY count(*) DESC;
 ```
-화면→DB E2E 체인 — **현 그래프(strazh)는 레거시 엣지명**(`INVOKE`/`HAVE`/`OF_TYPE`). CodeWiki 목표 스키마(`CALLS` 등)와 쿼리 패턴은 [docs/cookbook.md](docs/cookbook.md) 참조.
+화면→DB E2E 체인(검증된 CodeWiki 스키마):
 ```cypher
 MATCH (v:View)-[:BINDS_TO]->(vm:ViewModel)-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)
-MATCH (h)-[:INVOKE*1..4]->(im:Method)<-[:IMPLEMENTS_METHOD]-(impl:Method)-[:USES]->(e:Entity)
+MATCH (h)-[:CALLS*1..4]->(im:Method)<-[:IMPLEMENTS_METHOD]-(impl:Method)-[:USES]->(e:Entity)
 RETURN v.name, vm.name, c.name, e.name LIMIT 10;
 ```
-> 결과가 0건이면 코드에 없는 게 아니라 **빌드 커버리지** 문제일 수 있습니다(§0).
+> 결과가 0건이면 코드에 없는 게 아니라 **빌드 커버리지** 문제일 수 있습니다(§0). 더 많은 패턴은 [docs/cookbook.md](docs/cookbook.md).
 
 ---
 
-## 4. LLM 연동 (MCP)
+## 6. LLM 연동 (MCP)
 
 읽기전용 계정 + 쿡북 주입으로 LLM이 정확한 Cypher를 작성하게 합니다.
 - 설정: [docs/mcp/README.md](docs/mcp/README.md)
@@ -103,9 +112,9 @@ RETURN v.name, vm.name, c.name, e.name LIMIT 10;
 **예제 질문(실제 Vanuatu 식별자 기준):**
 - *"`SearchInvoiceFilter`의 프로퍼티 타입을 바꾸면 영향받는 ViewModel·서비스·메서드를 전부 리스트업해줘."* (영향도 — `USES_TYPE`)
 - *"`SearchOrderView`의 검색 버튼을 누르면 핸들러→`IOrderService`→어떤 엔티티까지 흐르는지 E2E를 Mermaid로 그려줘."* (E2E)
-- *"`IPaymentService`·`IOrderService`의 DI 등록 생명주기(`REGISTERS.lifetime`)와 프로젝트 순환 의존을 보여줘."* (DI)
+- *"`SearchOrderViewModel`이 정의한 모든 커맨드와 각 커맨드가 도달하는 서버 서비스 구현을 보여줘."* (화면→백엔드 내비)
 
 ---
 
 ## 알려진 한계
-1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(`REGISTERS` 생명주기까지만). 3. 라우트 문자열 경계는 비목표 — 경계 관통은 공유 인터페이스(`IMPLEMENTS_METHOD`)로만. 4. `CallRawSQL`·`DTOGenerator` 사각지대.
+1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(경계 관통은 공유 인터페이스 `IMPLEMENTS_METHOD`로만, 라우트 문자열 경계는 비목표). 3. 끝단은 `Repository<Entity>`의 Entity까지(`USES`) — DbContext·테이블명은 비목표. 4. `CallRawSQL`·`DTOGenerator` 사각지대. 5. 시맨틱 주입(소스 설명·L0~L2 props)은 Phase 2 — [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md).
