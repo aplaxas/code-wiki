@@ -21,4 +21,36 @@ public class CliOptionsTests
         Assert.Equal("neo4j:neo4j:pw", o.Credentials);
         Assert.True(o.Wipe);
     }
+
+    [Fact]
+    public void OptionWithoutValueDoesNotThrow()
+    {
+        var o = CliOptions.Parse(new[] { "extract", "-s" });
+        Assert.Equal("extract", o.Verb);
+        Assert.Null(o.Solution);
+    }
+
+    [Fact]
+    public void OutputOptionWithoutValueDoesNotThrow()
+    {
+        var o = CliOptions.Parse(new[] { "extract", "-o" });
+        Assert.Equal("extract", o.Verb);
+        Assert.Null(o.Output);
+    }
+
+    [Fact]
+    public void CredentialsOptionWithoutValueDoesNotThrow()
+    {
+        var o = CliOptions.Parse(new[] { "load", "-c" });
+        Assert.Equal("load", o.Verb);
+        Assert.Null(o.Credentials);
+    }
+
+    [Fact]
+    public void NdjsonOptionWithoutValueDoesNotThrow()
+    {
+        var o = CliOptions.Parse(new[] { "load", "--ndjson" });
+        Assert.Equal("load", o.Verb);
+        Assert.Null(o.Ndjson);
+    }
 }

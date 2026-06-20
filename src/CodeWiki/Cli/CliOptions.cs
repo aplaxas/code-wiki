@@ -15,18 +15,18 @@ public sealed record CliOptions(string Verb, string? Solution, string? Output,
             {
                 case "-s":
                 case "--solution":
-                    sln = args[++i];
+                    if (++i < args.Length) sln = args[i];
                     break;
                 case "-o":
                 case "--output":
-                    o = args[++i];
+                    if (++i < args.Length) o = args[i];
                     break;
                 case "-c":
                 case "--credentials":
-                    c = args[++i];
+                    if (++i < args.Length) c = args[i];
                     break;
                 case "--ndjson":
-                    ndjson = args[++i];
+                    if (++i < args.Length) ndjson = args[i];
                     break;
                 case "--wipe":
                     wipe = true;
