@@ -3,6 +3,7 @@ using System.Linq;
 using CodeWiki.Model;
 using CodeWiki.Roslyn;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace CodeWiki.Extraction;
 
@@ -20,6 +21,38 @@ public sealed class TypeExtractor : IExtractor
             var node = SymbolNodes.ForType(t, _roles);
             if (node == null) continue;
             graph.AddNode(node);
+
+            // DECLARES + CALLS + INSTANTIATES edges
+            foreach (var m in t.GetMembers().OfType<IMethodSymbol>())
+            {
+                if (m.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
+                    or MethodKind.EventAdd or MethodKind.EventRemove) continue;
+                var mNode = SymbolNodes.ForMethod(m);
+                graph.AddNode(mNode);
+                graph.AddEdge(new Edge(Rel.Declares, node.Pk, mNode.Pk, Empty));
+                foreach (var sr in m.DeclaringSyntaxReferences)
+                {
+                    var syntax = sr.GetSyntax();
+                    var model = ctx.Compilation.GetSemanticModel(syntax.SyntaxTree);
+                    foreach (var inv in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>())
+                        if (model.GetSymbolInfo(inv).Symbol is IMethodSymbol callee)
+                        {
+                            var cn = SymbolNodes.ForMethod(callee.OriginalDefinition);
+                            graph.AddNode(cn);
+                            graph.AddEdge(new Edge(Rel.Calls, mNode.Pk, cn.Pk, Empty));
+                        }
+                    foreach (var oc in syntax.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+                        if (model.GetSymbolInfo(oc).Symbol is IMethodSymbol ctor && ctor.ContainingType is INamedTypeSymbol created)
+                        {
+                            var crn = SymbolNodes.ForType(created, _roles);
+                            if (crn != null)
+                            {
+                                graph.AddNode(crn);
+                                graph.AddEdge(new Edge(Rel.Instantiates, mNode.Pk, crn.Pk, Empty));
+                            }
+                        }
+                }
+            }
 
             // DECLARED_IN edges
             foreach (var loc in t.Locations.Where(l => l.IsInSource))

@@ -43,4 +43,27 @@ public class TypeExtractorTests
         var g = Run("namespace N { public class Vm : BindableBase {} }");
         Assert.DoesNotContain(g.Edges, e => e.Type == Rel.Inherits);
     }
+
+    [Fact]
+    public void DeclaresAndCallsInterfaceDirect()
+    {
+        var g = Run(@"namespace N {
+            public interface ISvc { void Do(); }
+            public class Vm { private ISvc _s; public void Handler() { _s.Do(); } }
+        }");
+        var handler = g.Nodes.Single(n => n.Name == "Handler");
+        var vm = g.Nodes.Single(n => n.Name == "Vm");
+        var doMethod = g.Nodes.Single(n => n.Name == "Do");
+        Assert.Contains(g.Edges, e => e.Type == Rel.Declares && e.FromPk == vm.Pk && e.ToPk == handler.Pk);
+        Assert.Contains(g.Edges, e => e.Type == Rel.Calls && e.FromPk == handler.Pk && e.ToPk == doMethod.Pk); // 인터페이스 메서드로 직행
+    }
+
+    [Fact]
+    public void Instantiates()
+    {
+        var g = Run("namespace N { public class A {} public class B { public void M(){ var a = new A(); } } }");
+        var m = g.Nodes.Single(n => n.Name == "M");
+        var a = g.Nodes.Single(n => n.Name == "A");
+        Assert.Contains(g.Edges, e => e.Type == Rel.Instantiates && e.FromPk == m.Pk && e.ToPk == a.Pk);
+    }
 }
