@@ -12,7 +12,7 @@ public class CypherBuilderTests
         var g = new Graph();
         g.AddNode(new Node(Labels.Class, "1", "Vm", "N.Vm", new Dictionary<string, string>(), new[] { Labels.ViewModel }));
         var (cypher, param) = CypherBuilder.NodeStatements(g).Single();
-        Assert.Contains("MERGE (n:Class:ViewModel {pk: row.pk})", cypher);
+        Assert.Contains("MERGE (n:Node:Class:ViewModel {pk: row.pk})", cypher);
         Assert.Single((List<Dictionary<string, object>>)param["rows"]);
     }
 
@@ -22,6 +22,8 @@ public class CypherBuilderTests
         var g = new Graph();
         g.AddEdge(new Edge(Rel.Calls, "1", "2", new Dictionary<string, string>()));
         var (cypher, _) = CypherBuilder.EdgeStatements(g).Single();
+        Assert.Contains("MATCH (a:Node {pk: row.from})", cypher);
+        Assert.Contains("MATCH (b:Node {pk: row.to})", cypher);
         Assert.Contains("MERGE (a)-[r:CALLS]->(b)", cypher);
     }
 
@@ -33,6 +35,6 @@ public class CypherBuilderTests
         g.AddNode(new Node(Labels.Class, "2", "B", "N.B", new Dictionary<string, string>(), new[] { Labels.Service, Labels.ViewModel }));
         var stmts = CypherBuilder.NodeStatements(g).ToList();
         Assert.Single(stmts);
-        Assert.Contains(":Class:Service:ViewModel", stmts[0].cypher);
+        Assert.Contains(":Node:Class:Service:ViewModel", stmts[0].cypher);
     }
 }

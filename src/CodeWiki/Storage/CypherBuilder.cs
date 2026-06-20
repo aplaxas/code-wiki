@@ -12,7 +12,7 @@ public static class CypherBuilder
         {
             var first = grp.First();
             var sortedRoles = first.Roles.OrderBy(r => r).ToList();
-            var labels = ":" + first.Label + (sortedRoles.Count > 0 ? ":" + string.Join(":", sortedRoles) : "");
+            var labels = ":Node:" + first.Label + (sortedRoles.Count > 0 ? ":" + string.Join(":", sortedRoles) : "");
             var cypher = $"UNWIND $rows AS row MERGE (n{labels} {{pk: row.pk}}) " +
                          "SET n += row.props, n.name = row.name, n.fullName = row.fullName";
             var rows = grp.Select(n => new Dictionary<string, object>
@@ -30,7 +30,7 @@ public static class CypherBuilder
     {
         foreach (var grp in g.Edges.GroupBy(e => e.Type))
         {
-            var cypher = $"UNWIND $rows AS row MATCH (a {{pk: row.from}}) MATCH (b {{pk: row.to}}) " +
+            var cypher = $"UNWIND $rows AS row MATCH (a:Node {{pk: row.from}}) MATCH (b:Node {{pk: row.to}}) " +
                          $"MERGE (a)-[r:{grp.Key}]->(b) SET r += row.props";
             var rows = grp.Select(e => new Dictionary<string, object>
             {

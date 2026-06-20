@@ -19,6 +19,8 @@ public sealed class Neo4jLoader : System.IAsyncDisposable
             var wipeCursor = await session.RunAsync("MATCH (n) DETACH DELETE n");
             await wipeCursor.ConsumeAsync();
         }
+        var ixCursor = await session.RunAsync("CREATE INDEX node_pk IF NOT EXISTS FOR (n:Node) ON (n.pk)");
+        await ixCursor.ConsumeAsync();
         foreach (var (cypher, param) in CypherBuilder.NodeStatements(g))
         {
             var cursor = await session.RunAsync(cypher, param);
