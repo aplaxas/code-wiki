@@ -44,11 +44,17 @@ public sealed class CommandExtractor : IExtractor
                     graph.AddEdge(new Edge(Rel.DefinesCommand, owner.Pk, cmd.Pk, Empty));
 
                     var arg = oc.ArgumentList?.Arguments.FirstOrDefault();
-                    if (arg != null && model.GetSymbolInfo(arg.Expression).Symbol is IMethodSymbol handler)
+                    if (arg != null)
                     {
-                        var hn = SymbolNodes.ForMethod(handler);
-                        graph.AddNode(hn);
-                        graph.AddEdge(new Edge(Rel.Executes, cmd.Pk, hn.Pk, Empty));
+                        var si = model.GetSymbolInfo(arg.Expression);
+                        var handler = si.Symbol as IMethodSymbol
+                                   ?? si.CandidateSymbols.OfType<IMethodSymbol>().FirstOrDefault();
+                        if (handler != null)
+                        {
+                            var hn = SymbolNodes.ForMethod(handler);
+                            graph.AddNode(hn);
+                            graph.AddEdge(new Edge(Rel.Executes, cmd.Pk, hn.Pk, Empty));
+                        }
                     }
                 }
             }

@@ -1,0 +1,118 @@
+### COMMITS
+baba617 feat(codewiki): TypeExtractor DECLARES/CALLS/INSTANTIATES
+
+### DIFF -U12
+diff --git a/src/CodeWiki.Tests/TypeExtractorTests.cs b/src/CodeWiki.Tests/TypeExtractorTests.cs
+index e68c6a9..e67dd58 100644
+--- a/src/CodeWiki.Tests/TypeExtractorTests.cs
++++ b/src/CodeWiki.Tests/TypeExtractorTests.cs
+@@ -34,13 +34,36 @@ public class TypeExtractorTests
+         var d = g.Nodes.Single(n => n.Name == "D");
+         var b = g.Nodes.Single(n => n.Name == "B");
+         Assert.Contains(g.Edges, e => e.Type == Rel.Inherits && e.FromPk == d.Pk && e.ToPk == b.Pk);
+     }
+ 
+     [Fact]
+     public void UnresolvedBaseSkipped()
+     {
+         // BindableBase 미참조 - 불변식 #3
+         var g = Run("namespace N { public class Vm : BindableBase {} }");
+         Assert.DoesNotContain(g.Edges, e => e.Type == Rel.Inherits);
+     }
++
++    [Fact]
++    public void DeclaresAndCallsInterfaceDirect()
++    {
++        var g = Run(@"namespace N {
++            public interface ISvc { void Do(); }
++            public class Vm { private ISvc _s; public void Handler() { _s.Do(); } }
++        }");
++        var handler = g.Nodes.Single(n => n.Name == "Handler");
++        var vm = g.Nodes.Single(n => n.Name == "Vm");
++        var doMethod = g.Nodes.Single(n => n.Name == "Do");
++        Assert.Contains(g.Edges, e => e.Type == Rel.Declares && e.FromPk == vm.Pk && e.ToPk == handler.Pk);
++        Assert.Contains(g.Edges, e => e.Type == Rel.Calls && e.FromPk == handler.Pk && e.ToPk == doMethod.Pk); // 인터페이스 메서드로 직행
++    }
++
++    [Fact]
++    public void Instantiates()
++    {
++        var g = Run("namespace N { public class A {} public class B { public void M(){ var a = new A(); } } }");
++        var m = g.Nodes.Single(n => n.Name == "M");
++        var a = g.Nodes.Single(n => n.Name == "A");
++        Assert.Contains(g.Edges, e => e.Type == Rel.Instantiates && e.FromPk == m.Pk && e.ToPk == a.Pk);
++    }
+ }
+diff --git a/src/CodeWiki/Extraction/TypeExtractor.cs b/src/CodeWiki/Extraction/TypeExtractor.cs
+index 02fcd0b..712a602 100644
+--- a/src/CodeWiki/Extraction/TypeExtractor.cs
++++ b/src/CodeWiki/Extraction/TypeExtractor.cs
+@@ -1,35 +1,68 @@
+ using System.Collections.Generic;
+ using System.Linq;
+ using CodeWiki.Model;
+ using CodeWiki.Roslyn;
+ using Microsoft.CodeAnalysis;
++using Microsoft.CodeAnalysis.CSharp.Syntax;
+ 
+ namespace CodeWiki.Extraction;
+ 
+ public sealed class TypeExtractor : IExtractor
+ {
+     private static readonly IReadOnlyDictionary<string, string> Empty = new Dictionary<string, string>();
+     private readonly RoleClassifier _roles;
+ 
+     public TypeExtractor(RoleClassifier roles) => _roles = roles;
+ 
+     public void Extract(ExtractionContext ctx, Graph graph)
+     {
+         foreach (var t in ctx.SourceTypes())
+         {
+             var node = SymbolNodes.ForType(t, _roles);
+             if (node == null) continue;
+             graph.AddNode(node);
+ 
++            // DECLARES + CALLS + INSTANTIATES edges
++            foreach (var m in t.GetMembers().OfType<IMethodSymbol>())
++            {
++                if (m.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet
++                    or MethodKind.EventAdd or MethodKind.EventRemove) continue;
++                var mNode = SymbolNodes.ForMethod(m);
++                graph.AddNode(mNode);
++                graph.AddEdge(new Edge(Rel.Declares, node.Pk, mNode.Pk, Empty));
++                foreach (var sr in m.DeclaringSyntaxReferences)
++                {
++                    var syntax = sr.GetSyntax();
++                    var model = ctx.Compilation.GetSemanticModel(syntax.SyntaxTree);
++                    foreach (var inv in syntax.DescendantNodes().OfType<InvocationExpressionSyntax>())
++                        if (model.GetSymbolInfo(inv).Symbol is IMethodSymbol callee)
++                        {
++                            var cn = SymbolNodes.ForMethod(callee.OriginalDefinition);
++                            graph.AddNode(cn);
++                            graph.AddEdge(new Edge(Rel.Calls, mNode.Pk, cn.Pk, Empty));
++                        }
++                    foreach (var oc in syntax.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
++                        if (model.GetSymbolInfo(oc).Symbol is IMethodSymbol ctor && ctor.ContainingType is INamedTypeSymbol created)
++                        {
++                            var crn = SymbolNodes.ForType(created, _roles);
++                            if (crn != null)
++                            {
++                                graph.AddNode(crn);
++                                graph.AddEdge(new Edge(Rel.Instantiates, mNode.Pk, crn.Pk, Empty));
++                            }
++                        }
++                }
++            }
++
+             // DECLARED_IN edges
+             foreach (var loc in t.Locations.Where(l => l.IsInSource))
+             {
+                 var path = loc.SourceTree?.FilePath;
+                 if (string.IsNullOrEmpty(path)) continue;
+                 var file = FileNodes.ForPath(path, ctx.SolutionRoot);
+                 graph.AddNode(file);
+                 graph.AddEdge(new Edge(Rel.DeclaredIn, node.Pk, file.Pk, Empty));
+             }
+ 
+             // INHERITS edge
+             if (t.BaseType is { TypeKind: TypeKind.Class, SpecialType: SpecialType.None } bt)

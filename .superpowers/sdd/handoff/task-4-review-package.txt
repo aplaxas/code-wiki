@@ -1,0 +1,85 @@
+### COMMITS
+a72ba8c feat(codewiki): Labels/Rel 상수
+
+### DIFF -U6
+diff --git a/src/CodeWiki.Tests/ConstantsTests.cs b/src/CodeWiki.Tests/ConstantsTests.cs
+new file mode 100644
+index 0000000..2fe615c
+--- /dev/null
++++ b/src/CodeWiki.Tests/ConstantsTests.cs
+@@ -0,0 +1,22 @@
++using CodeWiki.Model;
++
++namespace CodeWiki.Tests;
++
++public class ConstantsTests
++{
++    [Fact]
++    public void LabelsExist()
++    {
++        Assert.Equal("Class", Labels.Class);
++        Assert.Equal("ViewModel", Labels.ViewModel);
++        Assert.Equal("Method", Labels.Method);
++    }
++
++    [Fact]
++    public void RelsExist()
++    {
++        Assert.Equal("CALLS", Rel.Calls);
++        Assert.Equal("IMPLEMENTS_METHOD", Rel.ImplementsMethod);
++        Assert.Equal("DECLARES", Rel.Declares);
++    }
++}
+diff --git a/src/CodeWiki/Model/Labels.cs b/src/CodeWiki/Model/Labels.cs
+new file mode 100644
+index 0000000..9133815
+--- /dev/null
++++ b/src/CodeWiki/Model/Labels.cs
+@@ -0,0 +1,21 @@
++namespace CodeWiki.Model;
++
++public static class Labels
++{
++    public const string Class = "Class";
++    public const string Interface = "Interface";
++    public const string Method = "Method";
++    public const string Command = "Command";
++    public const string File = "File";
++    public const string Folder = "Folder";
++    public const string Solution = "Solution";
++    public const string Project = "Project";
++    public const string Package = "Package";
++    public const string Entity = "Entity";
++    public const string ViewModel = "ViewModel";
++    public const string Controller = "Controller";
++    public const string Service = "Service";
++    public const string Repository = "Repository";
++    public const string Dto = "DTO";
++    public const string View = "View";
++}
+diff --git a/src/CodeWiki/Model/Rel.cs b/src/CodeWiki/Model/Rel.cs
+new file mode 100644
+index 0000000..bbb90de
+--- /dev/null
++++ b/src/CodeWiki/Model/Rel.cs
+@@ -0,0 +1,20 @@
++namespace CodeWiki.Model;
++
++public static class Rel
++{
++    public const string DeclaredIn = "DECLARED_IN";
++    public const string IncludedIn = "INCLUDED_IN";
++    public const string Contains = "CONTAINS";
++    public const string DependsOn = "DEPENDS_ON";
++    public const string Inherits = "INHERITS";
++    public const string Implements = "IMPLEMENTS";
++    public const string Declares = "DECLARES";
++    public const string Calls = "CALLS";
++    public const string Instantiates = "INSTANTIATES";
++    public const string UsesType = "USES_TYPE";
++    public const string ImplementsMethod = "IMPLEMENTS_METHOD";
++    public const string DefinesCommand = "DEFINES_COMMAND";
++    public const string Executes = "EXECUTES";
++    public const string BindsTo = "BINDS_TO";
++    public const string Uses = "USES";
++}

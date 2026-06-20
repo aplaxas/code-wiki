@@ -1,0 +1,51 @@
+### COMMITS
+fc684f0 test(codewiki): TestCompiler 소스문자열→Compilation 헬퍼
+
+### DIFF -U8
+diff --git a/src/CodeWiki.Tests/TestCompiler.cs b/src/CodeWiki.Tests/TestCompiler.cs
+new file mode 100644
+index 0000000..4b87f99
+--- /dev/null
++++ b/src/CodeWiki.Tests/TestCompiler.cs
+@@ -0,0 +1,20 @@
++using System;
++using System.Linq;
++using Microsoft.CodeAnalysis;
++using Microsoft.CodeAnalysis.CSharp;
++
++namespace CodeWiki.Tests;
++
++public static class TestCompiler
++{
++    public static (Compilation, SemanticModel) Compile(string source)
++    {
++        var tree = CSharpSyntaxTree.ParseText(source);
++        var refs = AppDomain.CurrentDomain.GetAssemblies()
++            .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
++            .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location));
++        var c = CSharpCompilation.Create("Test", new[] { tree }, refs,
++            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
++        return (c, c.GetSemanticModel(tree));
++    }
++}
+diff --git a/src/CodeWiki.Tests/TestCompilerTests.cs b/src/CodeWiki.Tests/TestCompilerTests.cs
+new file mode 100644
+index 0000000..c340850
+--- /dev/null
++++ b/src/CodeWiki.Tests/TestCompilerTests.cs
+@@ -0,0 +1,15 @@
++using System.Linq;
++using Microsoft.CodeAnalysis;
++using Xunit;
++
++namespace CodeWiki.Tests;
++
++public class TestCompilerTests
++{
++    [Fact]
++    public void CompilesAndResolvesSymbol()
++    {
++        var (c, _) = TestCompiler.Compile("namespace N { public class Foo {} }");
++        Assert.NotEmpty(c.GetSymbolsWithName("Foo"));
++    }
++}

@@ -1,0 +1,90 @@
+### COMMITS
+77e7668 feat(codewiki): RoleClassifier 역할 라벨 휴리스틱
+
+### DIFF -U10
+diff --git a/src/CodeWiki.Tests/RoleClassifierTests.cs b/src/CodeWiki.Tests/RoleClassifierTests.cs
+new file mode 100644
+index 0000000..887b811
+--- /dev/null
++++ b/src/CodeWiki.Tests/RoleClassifierTests.cs
+@@ -0,0 +1,36 @@
++using System.Linq;
++using CodeWiki.Model;
++using CodeWiki.Roslyn;
++using Microsoft.CodeAnalysis;
++using Xunit;
++
++namespace CodeWiki.Tests;
++
++public class RoleClassifierTests
++{
++    static INamedTypeSymbol T(string src, string name)
++    {
++        var (c, _) = TestCompiler.Compile(src);
++        return (INamedTypeSymbol)c.GetSymbolsWithName(name).Single();
++    }
++
++    [Fact]
++    public void ViewModelByName()
++    {
++        var t = T("public class FooViewModel {}", "FooViewModel");
++        Assert.Contains(Labels.ViewModel, new RoleClassifier().Classify(t));
++    }
++
++    [Fact]
++    public void ViewByName_NotViewModel()
++    {
++        var t = T("public class FooView {}", "FooView");
++        var roles = new RoleClassifier().Classify(t);
++        Assert.Contains(Labels.View, roles);
++        Assert.DoesNotContain(Labels.ViewModel, roles);
++    }
++
++    [Fact]
++    public void PlainClassNoRole() =>
++        Assert.Empty(new RoleClassifier().Classify(T("public class Foo {}", "Foo")));
++}
+diff --git a/src/CodeWiki/Roslyn/RoleClassifier.cs b/src/CodeWiki/Roslyn/RoleClassifier.cs
+index eb028f1..7838794 100644
+--- a/src/CodeWiki/Roslyn/RoleClassifier.cs
++++ b/src/CodeWiki/Roslyn/RoleClassifier.cs
+@@ -1,9 +1,37 @@
+ using System.Collections.Generic;
++using System.Linq;
++using CodeWiki.Model;
+ using Microsoft.CodeAnalysis;
+ 
+ namespace CodeWiki.Roslyn;
+ 
+-public class RoleClassifier
++public sealed class RoleClassifier
+ {
+-    public IReadOnlyList<string> Classify(INamedTypeSymbol t) => System.Array.Empty<string>();
++    public IReadOnlyList<string> Classify(INamedTypeSymbol t)
++    {
++        var roles = new List<string>();
++        var name = t.Name;
++        var ns = t.ContainingNamespace?.ToDisplayString() ?? "";
++
++        bool Inherits(string baseName)
++        {
++            for (var b = t.BaseType; b != null; b = b.BaseType)
++                if (b.Name == baseName)
++                    return true;
++            return false;
++        }
++
++        bool ImplementsName(string ifaceName) => t.AllInterfaces.Any(i => i.Name == ifaceName);
++
++        if (ImplementsName("IBaseEntity")) roles.Add(Labels.Entity);
++        if (name.EndsWith("ViewModel") || Inherits("BindableBase")) roles.Add(Labels.ViewModel);
++        if (name.EndsWith("Controller") || Inherits("ControllerBase")) roles.Add(Labels.Controller);
++        if (t.AllInterfaces.Any(i => i.Name.StartsWith("I") && i.Name.EndsWith("Service")
++            && (i.ContainingNamespace?.ToDisplayString() ?? "").StartsWith("Vanuatu.Service"))) roles.Add(Labels.Service);
++        if (name.Contains("Repository")) roles.Add(Labels.Repository);
++        if (ns.Contains(".DTO") || name.EndsWith("DTO")) roles.Add(Labels.Dto);
++        if (name.EndsWith("View") && !name.EndsWith("ViewModel")) roles.Add(Labels.View);
++
++        return roles;
++    }
+ }

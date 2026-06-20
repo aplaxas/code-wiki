@@ -1,0 +1,138 @@
+### COMMITS
+eb6aba3 feat(codewiki): Names/SymbolNodes/FileNodes 심볼→노드 팩토리
+
+### DIFF -U10
+diff --git a/src/CodeWiki.Tests/SymbolNodesTests.cs b/src/CodeWiki.Tests/SymbolNodesTests.cs
+new file mode 100644
+index 0000000..174e2b0
+--- /dev/null
++++ b/src/CodeWiki.Tests/SymbolNodesTests.cs
+@@ -0,0 +1,35 @@
++using System.Linq;
++using CodeWiki.Model;
++using CodeWiki.Roslyn;
++using Microsoft.CodeAnalysis;
++using Microsoft.CodeAnalysis.CSharp;
++using Xunit;
++
++namespace CodeWiki.Tests;
++
++public class SymbolNodesTests
++{
++    static Compilation Compile(string src) => CSharpCompilation.Create("t",
++        new[] { CSharpSyntaxTree.ParseText(src) },
++        new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) },
++        new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
++
++    [Fact]
++    public void TypeNodeHasFullNameAndLabel()
++    {
++        var c = Compile("namespace N { public class Foo {} }");
++        var foo = (INamedTypeSymbol)c.GetSymbolsWithName("Foo").Single();
++        var n = SymbolNodes.ForType(foo, null);
++        Assert.Equal(Labels.Class, n!.Label);
++        Assert.Equal("N.Foo", n.FullName);
++    }
++
++    [Fact]
++    public void MethodPkIncludesSignature()
++    {
++        var c = Compile("namespace N { public class Foo { public int Bar(string s)=>1; public int Bar()=>2; } }");
++        var foo = (INamedTypeSymbol)c.GetSymbolsWithName("Foo").Single();
++        var ms = foo.GetMembers("Bar").OfType<IMethodSymbol>().Select(SymbolNodes.ForMethod).ToList();
++        Assert.NotEqual(ms[0].Pk, ms[1].Pk);   // 오버로드 구분
++    }
++}
+diff --git a/src/CodeWiki/Roslyn/FileNodes.cs b/src/CodeWiki/Roslyn/FileNodes.cs
+new file mode 100644
+index 0000000..b297127
+--- /dev/null
++++ b/src/CodeWiki/Roslyn/FileNodes.cs
+@@ -0,0 +1,15 @@
++using System;
++using System.Collections.Generic;
++using CodeWiki.Model;
++
++namespace CodeWiki.Roslyn;
++
++public static class FileNodes
++{
++    public static Node ForPath(string abs, string root)
++    {
++        var rel = System.IO.Path.GetRelativePath(root, abs).Replace('\\', '/');
++        return new Node(Labels.File, Pk.Of(rel), System.IO.Path.GetFileName(rel), rel,
++            new Dictionary<string, string>(), Array.Empty<string>());
++    }
++}
+diff --git a/src/CodeWiki/Roslyn/Names.cs b/src/CodeWiki/Roslyn/Names.cs
+new file mode 100644
+index 0000000..2921f9f
+--- /dev/null
++++ b/src/CodeWiki/Roslyn/Names.cs
+@@ -0,0 +1,13 @@
++using Microsoft.CodeAnalysis;
++
++namespace CodeWiki.Roslyn;
++
++public static class Names
++{
++    private static readonly SymbolDisplayFormat Fmt = new(
++        globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Omitted,
++        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
++        genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters);
++
++    public static string Full(ISymbol s) => s.ToDisplayString(Fmt);
++}
+diff --git a/src/CodeWiki/Roslyn/RoleClassifier.cs b/src/CodeWiki/Roslyn/RoleClassifier.cs
+new file mode 100644
+index 0000000..eb028f1
+--- /dev/null
++++ b/src/CodeWiki/Roslyn/RoleClassifier.cs
+@@ -0,0 +1,9 @@
++using System.Collections.Generic;
++using Microsoft.CodeAnalysis;
++
++namespace CodeWiki.Roslyn;
++
++public class RoleClassifier
++{
++    public IReadOnlyList<string> Classify(INamedTypeSymbol t) => System.Array.Empty<string>();
++}
+diff --git a/src/CodeWiki/Roslyn/SymbolNodes.cs b/src/CodeWiki/Roslyn/SymbolNodes.cs
+new file mode 100644
+index 0000000..bcac990
+--- /dev/null
++++ b/src/CodeWiki/Roslyn/SymbolNodes.cs
+@@ -0,0 +1,32 @@
++using System;
++using System.Collections.Generic;
++using System.Linq;
++using CodeWiki.Model;
++using Microsoft.CodeAnalysis;
++
++namespace CodeWiki.Roslyn;
++
++public static class SymbolNodes
++{
++    private static readonly IReadOnlyDictionary<string, string> Empty = new Dictionary<string, string>();
++
++    public static Node? ForType(INamedTypeSymbol t, RoleClassifier? roles)
++    {
++        if (t.TypeKind != TypeKind.Class && t.TypeKind != TypeKind.Interface) return null;
++        var label = t.TypeKind == TypeKind.Interface ? Labels.Interface : Labels.Class;
++        var full = Names.Full(t);
++        var roleList = roles?.Classify(t) ?? Array.Empty<string>();
++        var props = t.DeclaredAccessibility != Accessibility.NotApplicable
++            ? new Dictionary<string, string> { ["modifiers"] = t.DeclaredAccessibility.ToString().ToLowerInvariant() } : Empty;
++        return new Node(label, Pk.Of(full), t.Name, full, props, roleList);
++    }
++
++    public static Node ForMethod(IMethodSymbol m)
++    {
++        var full = Names.Full(m);
++        var args = string.Join(", ", m.Parameters.Select(p => Names.Full(p.Type)));
++        var ret = Names.Full(m.ReturnType);
++        return new Node(Labels.Method, Pk.Of(full, args, ret), m.Name, full,
++            new Dictionary<string, string> { ["arguments"] = args, ["returnType"] = ret }, Array.Empty<string>());
++    }
++}
