@@ -14,11 +14,21 @@ public sealed class Neo4jLoader : System.IAsyncDisposable
     public async Task LoadAsync(Graph g, bool wipe)
     {
         await using var session = _driver.AsyncSession();
-        if (wipe) await session.RunAsync("MATCH (n) DETACH DELETE n");
+        if (wipe)
+        {
+            var wipeCursor = await session.RunAsync("MATCH (n) DETACH DELETE n");
+            await wipeCursor.ConsumeAsync();
+        }
         foreach (var (cypher, param) in CypherBuilder.NodeStatements(g))
-            await session.RunAsync(cypher, param);
+        {
+            var cursor = await session.RunAsync(cypher, param);
+            await cursor.ConsumeAsync();
+        }
         foreach (var (cypher, param) in CypherBuilder.EdgeStatements(g))
-            await session.RunAsync(cypher, param);
+        {
+            var cursor = await session.RunAsync(cypher, param);
+            await cursor.ConsumeAsync();
+        }
     }
 
     public async ValueTask DisposeAsync() => await _driver.DisposeAsync();

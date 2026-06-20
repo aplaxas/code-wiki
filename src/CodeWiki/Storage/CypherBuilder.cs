@@ -8,10 +8,11 @@ public static class CypherBuilder
 {
     public static IEnumerable<(string cypher, Dictionary<string, object> param)> NodeStatements(Graph g)
     {
-        foreach (var grp in g.Nodes.GroupBy(n => n.Label + ":" + string.Join(":", n.Roles)))
+        foreach (var grp in g.Nodes.GroupBy(n => n.Label + ":" + string.Join(":", n.Roles.OrderBy(r => r))))
         {
             var first = grp.First();
-            var labels = ":" + first.Label + (first.Roles.Count > 0 ? ":" + string.Join(":", first.Roles) : "");
+            var sortedRoles = first.Roles.OrderBy(r => r).ToList();
+            var labels = ":" + first.Label + (sortedRoles.Count > 0 ? ":" + string.Join(":", sortedRoles) : "");
             var cypher = $"UNWIND $rows AS row MERGE (n{labels} {{pk: row.pk}}) " +
                          "SET n += row.props, n.name = row.name, n.fullName = row.fullName";
             var rows = grp.Select(n => new Dictionary<string, object>

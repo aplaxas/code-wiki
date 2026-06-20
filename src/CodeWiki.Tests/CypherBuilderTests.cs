@@ -24,4 +24,15 @@ public class CypherBuilderTests
         var (cypher, _) = CypherBuilder.EdgeStatements(g).Single();
         Assert.Contains("MERGE (a)-[r:CALLS]->(b)", cypher);
     }
+
+    [Fact]
+    public void NodesWithSameLabelSetGroupRegardlessOfRoleOrder()
+    {
+        var g = new Graph();
+        g.AddNode(new Node(Labels.Class, "1", "A", "N.A", new Dictionary<string, string>(), new[] { Labels.ViewModel, Labels.Service }));
+        g.AddNode(new Node(Labels.Class, "2", "B", "N.B", new Dictionary<string, string>(), new[] { Labels.Service, Labels.ViewModel }));
+        var stmts = CypherBuilder.NodeStatements(g).ToList();
+        Assert.Single(stmts);
+        Assert.Contains(":Class:Service:ViewModel", stmts[0].cypher);
+    }
 }
