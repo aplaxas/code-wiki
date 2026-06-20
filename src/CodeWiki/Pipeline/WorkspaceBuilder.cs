@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Buildalyzer;
+using Buildalyzer.Environment;
 using Buildalyzer.Workspaces;
-using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 
 namespace CodeWiki.Pipeline;
@@ -25,12 +25,6 @@ public sealed class WorkspaceBuilder : IWorkspaceBuilder
             yield break;
         }
 
-        // Ensure MSBuild is registered
-        if (!MSBuildLocator.IsRegistered)
-        {
-            MSBuildLocator.RegisterDefaults();
-        }
-
         var manager = new AnalyzerManager(slnPath);
         var ws = new AdhocWorkspace();
 
@@ -39,8 +33,8 @@ public sealed class WorkspaceBuilder : IWorkspaceBuilder
             Compilation? comp = null;
             try
             {
-                // Build with default environment (풀빌드 — DesignTime=false is Buildalyzer default)
-                var results = p.Build();
+                // 불변식 #1: 풀빌드(design-time 금지) — 필수: WPF .xaml.cs/ViewModel 소스 전체 캡처
+                var results = p.Build(new Buildalyzer.Environment.EnvironmentOptions { DesignTime = false });
                 var result = results.FirstOrDefault();
 
                 if (result is null)
