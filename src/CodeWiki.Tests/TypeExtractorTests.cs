@@ -66,4 +66,13 @@ public class TypeExtractorTests
         var a = g.Nodes.Single(n => n.Name == "A");
         Assert.Contains(g.Edges, e => e.Type == Rel.Instantiates && e.FromPk == m.Pk && e.ToPk == a.Pk);
     }
+
+    [Fact]
+    public void InstantiatesImplicitNew()
+    {
+        var g = Run("namespace N { public class A {} public class B { public void M(){ A a = new(); } } }");
+        var m = g.Nodes.Single(n => n.Name == "M");
+        var a = g.Nodes.Single(n => n.Name == "A");
+        Assert.Contains(g.Edges, e => e.Type == Rel.Instantiates && e.FromPk == m.Pk && e.ToPk == a.Pk);
+    }
 }

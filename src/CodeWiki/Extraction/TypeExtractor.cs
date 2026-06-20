@@ -41,7 +41,7 @@ public sealed class TypeExtractor : IExtractor
                             graph.AddNode(cn);
                             graph.AddEdge(new Edge(Rel.Calls, mNode.Pk, cn.Pk, Empty));
                         }
-                    foreach (var oc in syntax.DescendantNodes().OfType<ObjectCreationExpressionSyntax>())
+                    foreach (var oc in syntax.DescendantNodes().OfType<BaseObjectCreationExpressionSyntax>())
                         if (model.GetSymbolInfo(oc).Symbol is IMethodSymbol ctor && ctor.ContainingType is INamedTypeSymbol created)
                         {
                             var crn = SymbolNodes.ForType(created, _roles);
