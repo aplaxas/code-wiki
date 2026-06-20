@@ -19,6 +19,7 @@ public sealed class RepositoryUsageExtractor : IExtractor
         foreach (var t in ctx.SourceTypes())
         foreach (var m in t.GetMembers().OfType<IMethodSymbol>())
         {
+            if (m.MethodKind is MethodKind.PropertyGet or MethodKind.PropertySet or MethodKind.Constructor) continue;
             var mNode = SymbolNodes.ForMethod(m);
             foreach (var sr in m.DeclaringSyntaxReferences)
             {
