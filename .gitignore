@@ -19,3 +19,6 @@ out/*
 # OS
 Thumbs.db
 .DS_Store
+
+# SDD scratch (handoff briefs/reports/ledger)
+.superpowers/
