@@ -7,7 +7,7 @@ using Neo4j.Driver;
 
 namespace CodeWiki.Storage;
 
-public sealed class Neo4jLoader : System.IAsyncDisposable
+public sealed class Neo4jLoader : System.IAsyncDisposable, CodeWiki.Semantic.ISemanticSink
 {
     private readonly IDriver _driver;
 
