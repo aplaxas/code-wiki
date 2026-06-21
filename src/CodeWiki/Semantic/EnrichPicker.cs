@@ -37,7 +37,7 @@ public sealed class EnrichPicker
         var vms = VanuatuLayout.ListViewModels(projectDir);
         if (vms.Count == 0) { Warn("ViewModel이 없습니다."); return; }
         var picked = AnsiConsole.Prompt(new MultiSelectionPrompt<string>()
-            .Title($"{project} — ViewModel 선택 (space 토글, enter 확정)")
+            .Title($"{Markup.Escape(project)} — ViewModel 선택 (space 토글, enter 확정)")
             .PageSize(20).Required(false).AddChoices(vms));
         if (picked.Count == 0) { Warn("선택 없음."); return; }
         await RunEach(picked, _runner.RunVmAsync);
@@ -52,9 +52,9 @@ public sealed class EnrichPicker
             prompt.AddChoiceGroup(g.Key, g.Select(x => x.Name));
         var iface = AnsiConsole.Prompt(prompt);
         var methods = _reader.ListIfaceMethods(iface);
-        if (methods.Count == 0) { Warn($"{iface}: enrich 가능한 메서드가 없습니다(Torba 구현 없음)."); return; }
+        if (methods.Count == 0) { Warn($"{Markup.Escape(iface)}: enrich 가능한 메서드가 없습니다(Torba 구현 없음)."); return; }
         var picked = AnsiConsole.Prompt(new MultiSelectionPrompt<string>()
-            .Title($"{iface} — 메서드 선택").PageSize(20).Required(false).AddChoices(methods));
+            .Title($"{Markup.Escape(iface)} — 메서드 선택").PageSize(20).Required(false).AddChoices(methods));
         if (picked.Count == 0) { Warn("선택 없음."); return; }
         await RunEach(picked, _runner.RunIfaceAsync);
     }
