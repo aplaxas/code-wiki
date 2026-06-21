@@ -4,9 +4,12 @@
 
 ```
 Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MERGE)──▶ Neo4j ──(mcp-neo4j-cypher / Browser)──▶ LLM·사람
+                                   └─ v2: enrich(Haiku) ──▶ semantic.ndjson ──(load --semantic 리플레이)──▶ Neo4j 노드 props
 ```
 
-> **현재 상태:** CodeWiki 코어 ETL **Phase 1 완료(2026-06-20).** `src/CodeWiki/`(net10.0)가 그래프 생성의 **정본 경로**다. Vanuatu.sln 실측 **21,300 노드 / 72,522 엣지 / 42 프로젝트 0 실패**, 산출물은 `out/graph.ndjson`. strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 종속 0(클린룸) — `strazh/`는 정리 대상.
+> **현재 상태:** CodeWiki 코어 ETL **Phase 1 완료(2026-06-20).** `src/CodeWiki/`(net10.0)가 그래프 생성의 **정본 경로**다. Vanuatu.sln 실측 **21,349 노드 / 72,522 엣지 / 42 프로젝트 0 실패**, 산출물은 `out/graph.ndjson`. strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 종속 0(클린룸) — `strazh/`는 정리 대상.
+>
+> **v2(Source 시맨틱 주입) MVP 완료·게이트 PASS(2026-06-20):** `enrich`로 노드에 **소스 위치(L0 결정론) + 의미(`summary`/`effects`/`caveats`, Haiku)** 를 주입하고 사이드카 `out/semantic.ndjson`에 영속한다. 적재부터 enrich까지는 **§8** 참고.
 
 ## 문서
 
@@ -16,7 +19,7 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 | [docs/cookbook.md](docs/cookbook.md) | Neo4j 이해(SQL 대조) + 검증 Cypher + Browser 내비게이션 |
 | [docs/core-etl-design.md](docs/core-etl-design.md) | Phase 1 코어 ETL 태스크·스코프 설계(한시) |
 | [docs/core-etl-plan.md](docs/core-etl-plan.md) | Phase 1 바이트사이즈 TDD 실행 계획(한시) |
-| [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md) | Phase 2(시맨틱 주입) 요약 |
+| [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md) | v2 설계 정본(PRD) — Source 시맨틱 주입 |
 | [CLAUDE.md](CLAUDE.md) | 운영 가이드·불변식 |
 
 ---
@@ -165,5 +168,61 @@ CALL db.schema.visualization();    // ER 다이어그램(메타 그래프)
 
 ---
 
+## 8. v2 — Source 시맨틱 주입 (`enrich`)
+
+> **상태:** v2 MVP(M0+M1) 구현·게이트 PASS(2026-06-20). 설계 정본 [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md), 검증 기록 [docs/graphDoc/search-order-semantic-validation.md](docs/graphDoc/search-order-semantic-validation.md).
+
+v2는 Phase 1 그래프의 **노드에 "소스 위치 + 그 코드가 무슨 일을 하는지"를 얹는다.** 구조는 그대로, 의미만 더한다.
+
+- **L0 결정론(추출기, Roslyn):** 모든 Method에 `sourcePath`/`startLine`/`endLine`. 서버 인터페이스 메서드에 `mutatesState`(true/false/unknown)·`operationType`(command/query). 건드리는 엔티티는 `USES` 엣지가 곧 답이라 LLM에 묻지 않는다.
+- **L1/L2 LLM(`enrich`, Haiku):** `summary`·`effects`·`caveats` **3필드만**. 인터페이스 메서드는 서버 구현 슬라이스(+1-hop 헬퍼), 화면은 `ViewModel.cs`를 통째로 읽어 화면 요약 + 핸들러별 요약을 한 번에 생성.
+- **사이드카 분리:** 시맨틱은 구조 `graph.ndjson`과 **별개인 `out/semantic.ndjson`** 에 산다 → `load --wipe`로 그래프를 비워도 리플레이로 복원. 비싼 LLM 산출물을 영속.
+- **델타-스킵:** LLM 입력(VM=`ViewModel.cs` 통째, iface=구현+헬퍼 번들)의 해시가 같으면 재실행 시 LLM을 호출하지 않는다.
+- **advisory:** 시맨틱은 보조 레이어, **코드가 ground truth.** `summary`가 결정론 `mutatesState`와 모순되면 신뢰하지 말고 `sourcePath`로 소스를 확인.
+
+### 8.0 사전 준비 (관리자 — enrich 실행 시)
+
+| 항목 | 비고 |
+|---|---|
+| `ANTHROPIC_API_KEY` | 환경변수. **커밋·로그 금지.** enrich가 Anthropic Haiku 호출에 사용 |
+| `VANUATU_ROOT` | Vanuatu 소스 루트(기본 `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu`). enrich가 `sourcePath`를 이 루트에 붙여 슬라이스를 읽음 |
+| Neo4j 적재 완료(§3) | enrich가 노드의 `sourcePath`를 그래프에서 조회하므로 적재가 선행 |
+
+### 8.1 L0 포함 재추출 → 적재
+
+v2 코드로 추출하면 `sourcePath`/`mutatesState`/`operationType`가 `graph.ndjson`에 함께 담긴다. **§4 추출 → §3 적재**를 그대로 한 번 다시 돌리면 된다(L0는 결정론이라 LLM·API 키 불필요).
+
+### 8.2 시맨틱 생성 (`enrich`)
+
+화면(ViewModel) 단위와 서버 인터페이스 메서드 단위로 돌린다. 사이드카 `out/semantic.ndjson`에 누적 기록되고, 동시에 Neo4j 노드에 props로 upsert된다.
+
+```powershell
+$env:ANTHROPIC_API_KEY = "sk-ant-..."     # 커밋 금지
+$env:VANUATU_ROOT = "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu"
+
+# 화면 1개: VM 요약 + 그 화면의 핸들러 전부 (한 번의 LLM 호출)
+dotnet run --project src/CodeWiki -c Release -- `
+  enrich --vm SearchOrderViewModel -c "neo4j:neo4j:strazhpass" --semantic out/semantic.ndjson
+
+# 서버 인터페이스 메서드 1개: 구현 슬라이스(+1-hop 헬퍼) 요약
+dotnet run --project src/CodeWiki -c Release -- `
+  enrich --iface SearchOrdersAsync -c "neo4j:neo4j:strazhpass" --semantic out/semantic.ndjson
+```
+→ `enriched: N records → out/semantic.ndjson`. 같은 명령을 다시 돌리면 변경 없는 입자는 `0 records`(델타-스킵).
+
+### 8.3 시맨틱 복원 (`load --semantic`)
+
+`--wipe` 재적재 후에도 사이드카를 리플레이해 시맨틱을 되살린다. 구조는 언제든 재생성, 의미는 보존.
+
+```powershell
+dotnet run --project src/CodeWiki -c Release -- `
+  load -c "neo4j:neo4j:strazhpass" --ndjson out/graph.ndjson --semantic out/semantic.ndjson --wipe
+```
+→ `+ semantic replayed: N records` 후 `loaded: ...`. 이제 노드에 `summary`/`effects`/`caveats`/`mutatesState`/`operationType`/`sourcePath`가 붙는다.
+
+> 시맨틱을 조회하는 Cypher는 [docs/cookbook.md](docs/cookbook.md). M2(대량 `--l1` 전체 인터페이스·전 화면)·`--iface` fullName 한정 등 후속은 [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md).
+
+---
+
 ## 알려진 한계
-1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(경계 관통은 공유 인터페이스 `IMPLEMENTS_METHOD`로만, 라우트 문자열 경계는 비목표). 3. 끝단은 `Repository<Entity>`의 Entity까지(`USES`) — DbContext·테이블명은 비목표. 4. `CallRawSQL`·`DTOGenerator` 사각지대. 5. 시맨틱 주입(소스 설명·L0~L2 props)은 Phase 2 — [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md).
+1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(경계 관통은 공유 인터페이스 `IMPLEMENTS_METHOD`로만, 라우트 문자열 경계는 비목표). 3. 끝단은 `Repository<Entity>`의 Entity까지(`USES`) — DbContext·테이블명은 비목표. 4. `CallRawSQL`·`DTOGenerator` 사각지대. 5. 시맨틱 주입(소스 위치·`summary`/`effects`/`caveats`)은 **v2 MVP 구현(§8)**. 대량 일괄(`--l1` 전체·전 화면)·`--iface` fullName 한정은 M2/M3 후속 — [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md).

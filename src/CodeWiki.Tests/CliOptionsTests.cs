@@ -53,4 +53,25 @@ public class CliOptionsTests
         Assert.Equal("load", o.Verb);
         Assert.Null(o.Ndjson);
     }
+
+    [Fact]
+    public void ParsesEnrichVmOptions()
+    {
+        var o = CliOptions.Parse(new[]
+        {
+            "enrich", "--vm", "SearchOrderViewModel",
+            "-c", "neo4j:neo4j:pw", "--semantic", "out/semantic.ndjson", "--model", "claude-haiku-4-5-20251001"
+        });
+        Assert.Equal("enrich", o.Verb);
+        Assert.Equal("SearchOrderViewModel", o.Vm);
+        Assert.Equal("out/semantic.ndjson", o.Semantic);
+        Assert.Equal("claude-haiku-4-5-20251001", o.Model);
+    }
+
+    [Fact]
+    public void ParsesLoadSemantic()
+    {
+        var o = CliOptions.Parse(new[] { "load", "-c", "a:b:c", "--ndjson", "g.ndjson", "--semantic", "s.ndjson" });
+        Assert.Equal("s.ndjson", o.Semantic);
+    }
 }

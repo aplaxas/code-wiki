@@ -266,7 +266,7 @@ strazh와의 동치 diff·베이스라인 카운트는 **완료 기준이 아니
 - **L0 결정론**: 메서드 `sourcePath`/`startLine`/`endLine`, 인터페이스 `domainArea`, VM `dependsOnServices`, XAML 추출(Command `uiLabel` 등) — 해당 추출기에서 props 키 추가.
 - **L1/L2 enrich**: 별도 명령이 적재된 그래프를 읽어 LLM 호출 후 같은 적재 경로로 props upsert. "시맨틱 = props 더 얹기."
 
-설계 개요: [_future/semantic-injection.md](_future/semantic-injection.md) (Phase 1 완료 후 진행).
+설계 정본(PRD): [codewiki-v2-spec.md](codewiki-v2-spec.md) (Phase 1 완료 후 진행).
 
 ---
 

@@ -19,6 +19,7 @@ public sealed class AnalysisPipeline
         var extractors = new IExtractor[]
         {
             new TypeExtractor(roles),
+            new SourceLocationExtractor(),
             new InterfaceImplementationExtractor(),
             new CommandExtractor(roles),
             new TypeUsageExtractor(roles),

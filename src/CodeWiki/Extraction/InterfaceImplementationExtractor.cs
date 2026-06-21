@@ -3,6 +3,7 @@ using System.Linq;
 using CodeWiki.Model;
 using CodeWiki.Roslyn;
 using Microsoft.CodeAnalysis;
+using OpKind = CodeWiki.Roslyn.OperationKind;
 
 namespace CodeWiki.Extraction;
 
@@ -23,6 +24,23 @@ public sealed class InterfaceImplementationExtractor : IExtractor
                     if (!SymbolEqualityComparer.Default.Equals(impl.ContainingType, t)) continue;
                     var implNode = SymbolNodes.ForMethod(impl);
                     var ifaceNode = SymbolNodes.ForMethod(member);
+
+                    foreach (var sr in impl.DeclaringSyntaxReferences)
+                    {
+                        var syntax = sr.GetSyntax();
+                        var model = ctx.Compilation.GetSemanticModel(syntax.SyntaxTree);
+                        if (OpKind.Classify(syntax, model) is { } k)
+                        {
+                            var props = new Dictionary<string, string>(ifaceNode.Props)
+                            {
+                                ["mutatesState"] = k.mutatesState,
+                                ["operationType"] = k.operationType,
+                            };
+                            ifaceNode = ifaceNode with { Props = props };
+                            break;
+                        }
+                    }
+
                     graph.AddNode(implNode);
                     graph.AddNode(ifaceNode);
                     graph.AddEdge(new Edge(Rel.ImplementsMethod, implNode.Pk, ifaceNode.Pk, Empty));
