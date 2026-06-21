@@ -17,6 +17,22 @@ public sealed class Neo4jGraphReader : IGraphReader, IAsyncDisposable
     public IfaceUnitInput ReadIfaceUnit(string ifaceMethodName) =>
         ReadIfaceUnitAsync(ifaceMethodName).GetAwaiter().GetResult();
 
+    public IReadOnlyList<string> ListIfaceMethods(string interfaceName) =>
+        ListIfaceMethodsAsync(interfaceName).GetAwaiter().GetResult();
+
+    private async Task<IReadOnlyList<string>> ListIfaceMethodsAsync(string interfaceName)
+    {
+        await using var s = _driver.AsyncSession();
+        var cur = await s.RunAsync(@"
+            MATCH (i:Interface {name:$n})-[:DECLARES]->(m:Method)
+            WHERE EXISTS { (m)<-[:IMPLEMENTS_METHOD]-(impl:Method)
+                           WHERE impl.fullName STARTS WITH 'Torba.Service' }
+            RETURN DISTINCT m.name AS name ORDER BY name",
+            new { n = interfaceName });
+        var rows = await cur.ToListAsync();
+        return rows.Select(r => r["name"].As<string>()).ToList();
+    }
+
     private async Task<VmDossierInput> ReadVmDossierAsync(string vmName)
     {
         await using var s = _driver.AsyncSession();

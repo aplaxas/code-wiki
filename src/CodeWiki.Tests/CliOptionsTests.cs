@@ -55,15 +55,15 @@ public class CliOptionsTests
     }
 
     [Fact]
-    public void ParsesEnrichVmOptions()
+    public void ParsesEnrichOptions()
     {
         var o = CliOptions.Parse(new[]
         {
-            "enrich", "--vm", "SearchOrderViewModel",
-            "-c", "neo4j:neo4j:pw", "--semantic", "out/semantic.ndjson", "--model", "claude-haiku-4-5-20251001"
+            "enrich", "-c", "neo4j:neo4j:pw",
+            "--semantic", "out/semantic.ndjson", "--model", "claude-haiku-4-5-20251001"
         });
         Assert.Equal("enrich", o.Verb);
-        Assert.Equal("SearchOrderViewModel", o.Vm);
+        Assert.Equal("neo4j:neo4j:pw", o.Credentials);
         Assert.Equal("out/semantic.ndjson", o.Semantic);
         Assert.Equal("claude-haiku-4-5-20251001", o.Model);
     }
