@@ -58,7 +58,10 @@ public sealed class AnthropicClient : ILlmClient
         var body = new
         {
             model = _model,
-            max_tokens = 2048,
+            // 대형 ViewModel(커맨드 수십 개)은 항목이 많아 출력이 길다. 2048은 잘려
+            // tool_use input의 items가 비어 파싱이 깨졌다. haiku 한도(64K) 안에서
+            // 비-스트리밍 안전선(~16K)으로 올린다.
+            max_tokens = 16000,
             system = new[]
             {
                 new { type = "text", text = req.System,
@@ -78,20 +81,40 @@ public sealed class AnthropicClient : ILlmClient
             throw new HttpRequestException(
                 $"Anthropic API {(int)resp.StatusCode} {resp.StatusCode}: {payload}");
         using var doc = JsonDocument.Parse(payload);
+        var root = doc.RootElement;
+        var stopReason = root.TryGetProperty("stop_reason", out var sr) ? sr.GetString() : null;
+
+        // tool_use 블록의 input.items를 안전하게 찾는다. 응답이 잘리면(max_tokens)
+        // items가 누락돼 가드 없는 GetProperty가 KeyNotFoundException("key not present")를
+        // 불투명하게 던졌다 — 원인을 드러내는 명확한 예외로 바꾼다.
+        var items = default(JsonElement);
+        var found = false;
+        if (root.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var block in content.EnumerateArray())
+            {
+                if (!block.TryGetProperty("type", out var t) || t.GetString() != "tool_use") continue;
+                if (block.TryGetProperty("input", out var input) &&
+                    input.TryGetProperty("items", out items))
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        if (!found)
+            throw new InvalidOperationException(
+                $"Anthropic 응답에서 record_semantics의 items를 찾지 못했습니다(stop_reason={stopReason ?? "?"}). " +
+                "stop_reason=max_tokens면 출력이 잘린 것 — max_tokens를 늘리거나 대상을 더 작게 나누세요.");
 
         var list = new List<LlmField>();
-        foreach (var block in doc.RootElement.GetProperty("content").EnumerateArray())
+        foreach (var it in items.EnumerateArray())
         {
-            if (block.GetProperty("type").GetString() != "tool_use") continue;
-            var items = block.GetProperty("input").GetProperty("items");
-            foreach (var it in items.EnumerateArray())
-            {
-                list.Add(new LlmField(
-                    it.GetProperty("key").GetString() ?? "",
-                    it.GetProperty("summary").GetString() ?? "",
-                    it.TryGetProperty("effects", out var e) ? e.GetString() : null,
-                    it.TryGetProperty("caveats", out var c) ? c.GetString() : null));
-            }
+            list.Add(new LlmField(
+                it.GetProperty("key").GetString() ?? "",
+                it.GetProperty("summary").GetString() ?? "",
+                it.TryGetProperty("effects", out var e) ? e.GetString() : null,
+                it.TryGetProperty("caveats", out var c) ? c.GetString() : null));
         }
         return list;
     }
