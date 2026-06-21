@@ -72,6 +72,11 @@ switch (o.Verb)
         {
             var input = reader.ReadVmDossier(o.Vm);
             var combined = System.IO.Path.Combine(vanuatuRoot, input.VmCsPath);
+            if (string.IsNullOrEmpty(input.VmCsPath) || !System.IO.File.Exists(combined))
+            {
+                Console.Error.WriteLine($"VM.cs not found for '{o.Vm}' (path '{combined}'). Re-run extract with L0 props or check VANUATU_ROOT.");
+                return;
+            }
             var hash = SummaryHash.Of(SourceSlicer.WholeFile(combined));
             var input2 = input with { VmCsPath = combined };
             existingHash.TryGetValue(input.VmPk, out var stored);

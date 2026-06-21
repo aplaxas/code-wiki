@@ -21,8 +21,16 @@ public static class OperationKind
             var name = InvokedName(inv);
             if (name is null) continue;
             if (RawSqlMarkers.Any(name.Contains)) rawSql = true;
-            var bare = name.EndsWith("Async") ? name[..^5] : name;
-            if (MutationVerbs.Contains(bare)) mutates = true;
+            // MutationVerb은 리포지토리 필드 수신자에 한해서만 집계한다.
+            // (예: list.Add(...)는 무시, _repo.Add(...)는 집계)
+            if (inv.Expression is MemberAccessExpressionSyntax ma &&
+                model.GetSymbolInfo(ma.Expression).Symbol is IFieldSymbol rf &&
+                rf.Type is INamedTypeSymbol rft && rft.IsGenericType && rft.Name.Contains("Repository"))
+            {
+                var bare = ma.Name.Identifier.Text;
+                bare = bare.EndsWith("Async") ? bare[..^5] : bare;
+                if (MutationVerbs.Contains(bare)) mutates = true;
+            }
         }
         if (rawSql) return ("unknown", "unknown");
         return mutates ? ("true", "command") : ("false", "query");
