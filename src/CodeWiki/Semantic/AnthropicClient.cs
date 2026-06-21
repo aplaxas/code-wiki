@@ -73,8 +73,11 @@ public sealed class AnthropicClient : ILlmClient
         };
 
         using var resp = await _http.PostAsJsonAsync("v1/messages", body);
-        resp.EnsureSuccessStatusCode();
-        using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var payload = await resp.Content.ReadAsStringAsync();
+        if (!resp.IsSuccessStatusCode)
+            throw new HttpRequestException(
+                $"Anthropic API {(int)resp.StatusCode} {resp.StatusCode}: {payload}");
+        using var doc = JsonDocument.Parse(payload);
 
         var list = new List<LlmField>();
         foreach (var block in doc.RootElement.GetProperty("content").EnumerateArray())
