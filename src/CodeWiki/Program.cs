@@ -49,11 +49,11 @@ switch (o.Verb)
             Console.Error.WriteLine("enrich requires -c <db:user:pass> --semantic <out> and (--vm <name> | --iface <method>)");
             return;
         }
-        var apiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
-        if (string.IsNullOrEmpty(apiKey)) { Console.Error.WriteLine("ANTHROPIC_API_KEY not set"); return; }
+        var apiKey = CodeWiki.AppSettings.AnthropicApiKey;
+        if (string.IsNullOrEmpty(apiKey)) { Console.Error.WriteLine("ANTHROPIC_API_KEY not set (env 또는 appsettings.json Anthropic:ApiKey)"); return; }
         var model = o.Model ?? "claude-haiku-4-5-20251001";
         var parts = o.Credentials.Split(':');
-        var vanuatuRoot = Environment.GetEnvironmentVariable("VANUATU_ROOT")
+        var vanuatuRoot = CodeWiki.AppSettings.VanuatuRoot
             ?? @"C:\develop\baw\phase2\baw-phase2-platform\Vanuatu";
 
         var driver = GraphDatabase.Driver("bolt://localhost:7687", AuthTokens.Basic(parts[^2], parts[^1]));

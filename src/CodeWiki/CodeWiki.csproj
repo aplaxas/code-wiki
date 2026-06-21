@@ -8,6 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- 로컬 비밀/설정(gitignore). 있으면 출력으로 복사, 없으면(클린 클론) 빌드 영향 없음 -->
+    <None Include="appsettings.json" Condition="Exists('appsettings.json')" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Buildalyzer" Version="9.0.0" />
     <PackageReference Include="Buildalyzer.Workspaces" Version="9.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.3.0" />

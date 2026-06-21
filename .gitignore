@@ -16,6 +16,9 @@ out/*
 # Local MCP config (may contain secrets)
 .mcp.json
 
+# Local app config (may contain secrets — Anthropic API key 등)
+appsettings.json
+
 # OS
 Thumbs.db
 .DS_Store
