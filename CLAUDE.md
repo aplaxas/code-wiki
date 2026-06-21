@@ -14,7 +14,7 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 
 - **CodeWiki 코어 ETL Phase 1 완료(2026-06-20).** `src/CodeWiki/`(net10.0) 구현·통합검증 끝. 단위테스트 42/42, Vanuatu.sln 실측 **21,300 노드 / 72,522 엣지 / 42 프로젝트 0 실패**, 빈 스텁 없음(ViewModel 499), 커맨드 90.4% 백엔드 허브 도달, SearchOrder E2E가 Entity까지 연결, 적재 ~14초(공유 `:Node` 라벨 + pk 인덱스).
 - **CodeWiki가 이제 그래프 생성의 정본 경로.** `out/graph.ndjson`이 산출물. strazh는 *처음 Neo4j를 접한 MIT 참조 프로젝트*일 뿐 — 종속 0(클린룸). 검증 끝났으니 `strazh/` 디렉터리는 정리 대상.
-- 후속(차단 아님): NU1903 transitive 취약점 패키지 핀, CALLS 프레임워크 노이즈 도메인 필터(필요시), Phase 2(시맨틱 주입) — [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md).
+- 후속(차단 아님): NU1903 transitive 취약점 패키지 핀, CALLS 프레임워크 노이즈 도메인 필터(필요시), Phase 2(시맨틱 주입) — [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md).
 
 ## 문서 (단일 출처)
 
@@ -24,7 +24,7 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 | [docs/cookbook.md](docs/cookbook.md) | **질의·학습** — Neo4j 이해(SQL대조) + 검증 Cypher + Browser 내비게이션 |
 | [docs/core-etl-design.md](docs/core-etl-design.md) | **한시** — Phase 1 코어 ETL 태스크·스코프 설계 |
 | [docs/core-etl-plan.md](docs/core-etl-plan.md) | **한시** — Phase 1 바이트사이즈 TDD 실행 계획. 빌드 완료 후 design·plan 정리 |
-| [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md) | Phase 2(시맨틱 주입) 요약 — 코어 ETL 완료 후 진행 |
+| [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md) | **v2 설계 정본(PRD)** — Source 시맨틱 주입. 코어 ETL 완료 후 진행 |
 
 ## Vanuatu 분석 불변식 (CodeWiki가 반드시 지킬 것)
 

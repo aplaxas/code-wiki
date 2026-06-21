@@ -16,7 +16,7 @@ Vanuatu.sln ──(Roslyn 추출)──▶ graph.ndjson ──(UNWIND 배치 MER
 | [docs/cookbook.md](docs/cookbook.md) | Neo4j 이해(SQL 대조) + 검증 Cypher + Browser 내비게이션 |
 | [docs/core-etl-design.md](docs/core-etl-design.md) | Phase 1 코어 ETL 태스크·스코프 설계(한시) |
 | [docs/core-etl-plan.md](docs/core-etl-plan.md) | Phase 1 바이트사이즈 TDD 실행 계획(한시) |
-| [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md) | Phase 2(시맨틱 주입) 요약 |
+| [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md) | v2 설계 정본(PRD) — Source 시맨틱 주입 |
 | [CLAUDE.md](CLAUDE.md) | 운영 가이드·불변식 |
 
 ---
@@ -166,4 +166,4 @@ CALL db.schema.visualization();    // ER 다이어그램(메타 그래프)
 ---
 
 ## 알려진 한계
-1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(경계 관통은 공유 인터페이스 `IMPLEMENTS_METHOD`로만, 라우트 문자열 경계는 비목표). 3. 끝단은 `Repository<Entity>`의 Entity까지(`USES`) — DbContext·테이블명은 비목표. 4. `CallRawSQL`·`DTOGenerator` 사각지대. 5. 시맨틱 주입(소스 설명·L0~L2 props)은 Phase 2 — [docs/_future/semantic-injection.md](docs/_future/semantic-injection.md).
+1. 빌드 커버리지(§0). 2. 생성자 주입 DI는 `USES_TYPE` 미반영(경계 관통은 공유 인터페이스 `IMPLEMENTS_METHOD`로만, 라우트 문자열 경계는 비목표). 3. 끝단은 `Repository<Entity>`의 Entity까지(`USES`) — DbContext·테이블명은 비목표. 4. `CallRawSQL`·`DTOGenerator` 사각지대. 5. 시맨틱 주입(소스 설명·L0~L2 props)은 Phase 2 — [docs/codewiki-v2-spec.md](docs/codewiki-v2-spec.md).
