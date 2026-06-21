@@ -5,6 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <!-- 노이즈 경고 억제(일단) — CodeWiki.csproj와 동일 -->
+    <!-- NU1608: CodeAnalysis 패키지 버전 제약 불일치(전이, 무해) -->
+    <NoWarn>$(NoWarn);NU1608;NU1903;CS0618</NoWarn>
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>
