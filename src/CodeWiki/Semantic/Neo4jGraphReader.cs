@@ -27,13 +27,16 @@ public sealed class Neo4jGraphReader : IGraphReader, IAsyncDisposable
             RETURN vm.pk AS vmPk,
                    collect(DISTINCT {pk:h.pk, name:h.name, sp:h.sourcePath}) AS handlers",
             new { vm = vmName });
-        var rec = await cur.SingleAsync();
+        var rows = await cur.ToListAsync();
+        if (rows.Count == 0)
+            throw new InvalidOperationException($"ViewModel not found in graph: {vmName}");
+        var rec = rows[0];
         var handlers = rec["handlers"].As<List<Dictionary<string, object>>>();
         var refs = handlers
             .Select(h => new HandlerRef(h["pk"].As<string>(), h["name"].As<string>()))
             .ToList();
         // Handlers live in the same VM.cs file — derive VM.cs path from first handler's sourcePath
-        var vmCsPath = handlers.Select(h => h["sp"].As<string>()).First();
+        var vmCsPath = handlers.Select(h => h["sp"].As<string>()).FirstOrDefault() ?? string.Empty;
         return new VmDossierInput(rec["vmPk"].As<string>(), vmCsPath, refs);
     }
 
@@ -49,7 +52,10 @@ public sealed class Neo4jGraphReader : IGraphReader, IAsyncDisposable
                    impl.sourcePath AS sp, impl.startLine AS sl, impl.endLine AS el,
                    collect(DISTINCT {sp:hlp.sourcePath, sl:hlp.startLine, el:hlp.endLine}) AS helpers",
             new { m = ifaceMethodName });
-        var rec = await cur.SingleAsync();
+        var rows = await cur.ToListAsync();
+        if (rows.Count == 0)
+            throw new InvalidOperationException($"Interface method not found in graph: {ifaceMethodName}");
+        var rec = rows[0];
         var slices = new List<SliceRef>
         {
             new(rec["sp"].As<string>(), ParseLine(rec["sl"]), ParseLine(rec["el"]))
