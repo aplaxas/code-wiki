@@ -143,23 +143,16 @@ Neo4j Browser(http://localhost:7474)에서 노드 수가 **21,349** 근처면 �
 
 ### 6.1 실행
 
-화면(ViewModel) 단위와 서버 인터페이스 메서드 단위로 돌린다.
+`enrich`는 대화형 TUI다. 실행하면 ① 화면 ViewModel / 서버 인터페이스를 고르고, ② 화면은 프로젝트→ViewModel 다중·전체 선택, ③ 인터페이스는 폴더별 인터페이스→메서드 다중 선택으로 대상을 정한다.
 
 ```powershell
 # (appsettings.json을 안 쓸 경우에만) 환경변수로 주입
 $env:ANTHROPIC_API_KEY = "sk-ant-..."     # 커밋 금지
-$env:VANUATU_ROOT = "C:\develop\baw\phase2\baw-phase2-platform\Vanuatu"
 
-# 화면 1개: VM 요약 + 그 화면의 핸들러 전부 (한 번의 LLM 호출)
 dotnet run --project src/CodeWiki -c Release -- `
-  enrich --vm SearchOrderViewModel -c "neo4j:neo4j:strazhpass" --semantic out/semantic.ndjson
-
-# 서버 인터페이스 메서드 1개: 구현 슬라이스(+1-hop 헬퍼) 요약
-dotnet run --project src/CodeWiki -c Release -- `
-  enrich --iface SearchOrdersAsync -c "neo4j:neo4j:strazhpass" --semantic out/semantic.ndjson
+  enrich -c "neo4j:neo4j:strazhpass" --semantic out/semantic.ndjson
 ```
-→ `enriched: N records → out/semantic.ndjson`. 같은 명령을 다시 돌리면 입력(VM=`ViewModel.cs` 통째,
-iface=구현+헬퍼 번들)의 해시가 같은 입자는 `0 records`로 **건너뛴다**(델타-스킵 — 변경분만 다시 호출).
+선택분이 각각 처리되고 `enriched N / skipped M / failed K`로 요약된다. 변경 없는 입자는 자동 건너뜀(델타-스킵).
 
 > **의미는 보조(advisory) — 코드가 ground truth.** `summary`가 결정론 `mutatesState`와 모순되면 신뢰하지 말고
 > `sourcePath`로 소스를 확인하세요.
