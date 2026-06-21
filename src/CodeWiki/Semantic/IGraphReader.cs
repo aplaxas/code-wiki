@@ -11,4 +11,5 @@ public interface IGraphReader
 {
     VmDossierInput ReadVmDossier(string vmName);
     IfaceUnitInput ReadIfaceUnit(string ifaceMethodName);
+    IReadOnlyList<string> ListIfaceMethods(string interfaceName);
 }
