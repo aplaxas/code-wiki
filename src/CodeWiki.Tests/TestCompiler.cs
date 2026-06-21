@@ -7,9 +7,9 @@ namespace CodeWiki.Tests;
 
 public static class TestCompiler
 {
-    public static (Compilation, SemanticModel) Compile(string source)
+    public static (Compilation, SemanticModel) Compile(string source, string? path = null)
     {
-        var tree = CSharpSyntaxTree.ParseText(source);
+        var tree = CSharpSyntaxTree.ParseText(source, path: path ?? "");
         var refs = AppDomain.CurrentDomain.GetAssemblies()
             .Where(a => !a.IsDynamic && !string.IsNullOrEmpty(a.Location))
             .Select(a => (MetadataReference)MetadataReference.CreateFromFile(a.Location));
