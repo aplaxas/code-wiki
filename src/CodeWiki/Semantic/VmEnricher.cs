@@ -20,19 +20,24 @@ public sealed class VmEnricher
     {
         if (storedVmHash == currentVmHash) return new List<SemanticRecord>();
 
+        // 핸들러 이름은 유일하지 않다(오버로드·공유 핸들러). 이름→pk 목록으로 묶어
+        // 한 이름의 LLM 요약을 같은 이름의 모든 핸들러 pk에 부착한다.
+        var pksByName = input.Handlers
+            .GroupBy(h => h.Name)
+            .ToDictionary(g => g.Key, g => g.Select(h => h.Pk).ToList());
+
         var content = SourceSlicer.WholeFile(input.VmCsPath);
-        var req = VmPromptBuilder.Build(content, input.Handlers.Select(h => h.Name).ToList());
+        var req = VmPromptBuilder.Build(content, pksByName.Keys.ToList());
         var fields = await _client.EnrichAsync(req);
 
-        var pkByName = input.Handlers.ToDictionary(h => h.Name, h => h.Pk);
         var records = new List<SemanticRecord>();
         foreach (var f in fields)
         {
-            string? pk = f.Key == VmPromptBuilder.ViewModelKey
-                ? input.VmPk
-                : (pkByName.TryGetValue(f.Key, out var p) ? p : null);
-            if (pk is null) continue;
-            records.Add(new SemanticRecord(pk, f.Summary, f.Effects, f.Caveats, currentVmHash, _model));
+            IReadOnlyList<string> pks = f.Key == VmPromptBuilder.ViewModelKey
+                ? new[] { input.VmPk }
+                : (pksByName.TryGetValue(f.Key, out var p) ? p : System.Array.Empty<string>());
+            foreach (var pk in pks)
+                records.Add(new SemanticRecord(pk, f.Summary, f.Effects, f.Caveats, currentVmHash, _model));
         }
         return records;
     }
