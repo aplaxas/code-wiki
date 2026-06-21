@@ -184,9 +184,18 @@ v2는 Phase 1 그래프의 **노드에 "소스 위치 + 그 코드가 무슨 일
 
 | 항목 | 비고 |
 |---|---|
-| `ANTHROPIC_API_KEY` | 환경변수. **커밋·로그 금지.** enrich가 Anthropic Haiku 호출에 사용 |
-| `VANUATU_ROOT` | Vanuatu 소스 루트(기본 `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu`). enrich가 `sourcePath`를 이 루트에 붙여 슬라이스를 읽음 |
+| Anthropic API 키 | enrich가 Haiku 호출에 사용. 우선순위 **`ANTHROPIC_API_KEY` 환경변수 > `appsettings.json`**. **커밋·로그 금지** |
+| Vanuatu 루트 | enrich가 `sourcePath`를 이 루트에 붙여 슬라이스를 읽음. `VANUATU_ROOT` 환경변수 > `appsettings.json` > 기본값 `C:\develop\baw\phase2\baw-phase2-platform\Vanuatu` |
 | Neo4j 적재 완료(§3) | enrich가 노드의 `sourcePath`를 그래프에서 조회하므로 적재가 선행 |
+
+**`appsettings.json`(권장, gitignore됨 — `.mcp.json`과 동일 패턴):** `src/CodeWiki/appsettings.json`에 두면 매번 환경변수를 export할 필요가 없다. 빌드 시 출력 디렉터리로 복사된다.
+```json
+{
+  "Anthropic": { "ApiKey": "sk-ant-..." },
+  "Vanuatu":   { "Root": "C:\\develop\\baw\\phase2\\baw-phase2-platform\\Vanuatu" }
+}
+```
+> ⚠️ 이 파일은 **절대 커밋 금지**(`.gitignore`에 등록됨). 환경변수가 있으면 환경변수가 우선한다.
 
 ### 8.1 L0 포함 재추출 → 적재
 
