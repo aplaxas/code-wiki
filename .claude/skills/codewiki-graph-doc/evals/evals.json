@@ -18,6 +18,12 @@
       "prompt": "OrderDTO 타입을 수정하려고 하는데 영향 범위가 궁금해. 이거 바꾸면 깨질 수 있는 메서드랑 ViewModel/서비스 전부 영향도 리포트로 만들어줘.",
       "expected_output": "docs/graphDoc/ 아래에 Markdown. 1차(USES_TYPE 직접 참조) 표 + 2차(호출 전파) 표. 소유 타입의 역할(ViewModel/Service/Controller) 구분. 클라/서버 양쪽 영향 해석 문단. 근거 Cypher 포함. USES_TYPE 상위집합 한계 언급.",
       "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "PlaceOrderViewModel 화면이 하는 일을, 커맨드별로 무슨 동작인지 한국어 설명까지 붙여서 문서로 정리해줘.",
+      "expected_output": "docs/graphDoc/ 아래에 Markdown. 시작 시 의미 커버리지 확인(WHERE n.summary IS NOT NULL). VM의 summary를 머리말로, 커맨드별 표에 '하는 일(summary)' 컬럼 포함(h.summary 결합). enrich된 핸들러는 자연어 설명, 미enrich 칸은 비고. summary는 보조(advisory)·부분 커버리지임을 유의에 명시. 근거 Cypher 포함. 지어내지 않음(빈 summary는 비움).",
+      "files": []
     }
   ]
 }

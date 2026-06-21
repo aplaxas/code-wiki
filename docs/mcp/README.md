@@ -23,6 +23,11 @@ docker exec neo4j cypher-shell -u neo4j -p strazhpass "MATCH (n) RETURN count(n)
 dotnet run --project src/CodeWiki -c Release -- load -c "neo4j:neo4j:strazhpass" --ndjson out/graph.ndjson --wipe
 ```
 
+> **의미 계층(enrich) 유무도 한 번 확인.** `enrich`로 노드에 입힌 한국어 요약(`summary`)이 있으면
+> LLM이 "무슨 일을 하나"를 자연어로 답하고 *행위로* 코드를 찾을 수 있다(§7 샘플 ⑨):
+> `docker exec neo4j cypher-shell -u neo4j -p strazhpass "MATCH (n:Node) WHERE n.summary IS NOT NULL RETURN count(n);"`
+> — 0이면 아직 enrich 안 한 것(구조만 질의). 채우려면 README 루트 §6(`enrich`).
+
 ---
 
 ## 2. (권장) 읽기전용 Neo4j 사용자
@@ -92,6 +97,9 @@ Mermaid 변환)를 **그때 로드**한다(progressive disclosure). 그래서:
 - **흐름** `BINDS_TO → DEFINES_COMMAND → EXECUTES → CALLS → IMPLEMENTS_METHOD → USES`
 - **경계** 클라(`Shefa.*`)와 서버(`Torba.Service.*`)는 인터페이스 메서드(`IMPLEMENTS_METHOD`)로 봉합.
   서버 끝단은 `WHERE x.fullName STARTS WITH 'Torba.Service'`.
+- **의미(enrich, 선택)** enrich된 노드는 `summary`(한국어 요약)·`summaryModel`도 가진다. "무슨 일을 하나"는
+  `n.summary`로 바로 답하고, *행위로* 코드를 찾을 땐 `WHERE n.summary CONTAINS '키워드'`. 보조(advisory)·
+  부분 커버리지(enrich한 것만, 없으면 빈 칸이지 "코드에 없음" 아님).
 
 > 더 깊은 레시피가 필요하면 [../cookbook.md](../cookbook.md) §2~§4를 **그때** 참고(상시 주입 X).
 > cookbook은 사람용 학습 문서, 스킬의 `references/cypher-recipes.md`는 기계용 자급 참조다 — 같은
@@ -152,6 +160,9 @@ RETURN c.name AS command, collect(DISTINCT im.name) AS ifaceMethods,
        collect(DISTINCT impl.fullName) AS serverImpls ORDER BY command;
 ```
 > 빈 `serverImpls`는 서버 미경유(순수 UI) 커맨드 — 누락이 아니라 분류.
+> **의미 결합(enrich돼 있으면):** 커맨드마다 자연어 설명까지 붙이려면 핸들러 `summary`를 함께 조회 —
+> `MATCH (vm:ViewModel {name:'SearchOrderViewModel'})-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)`
+> `RETURN c.name, h.name, h.summary ORDER BY c.name;` → 구조 표가 바로 화면 기능 명세가 된다.
 
 ### 샘플 ④ 엔티티 역추적 (DB → 화면)
 > 🗣️ *"`Order` 테이블을 만지는 화면(ViewModel·커맨드)이 어디어디야?"*
@@ -197,6 +208,15 @@ MATCH ()-[r]->() RETURN type(r) AS rel, count(*) AS c ORDER BY c DESC;          
 MATCH path=(p:Project)-[:DEPENDS_ON*2..]->(p) RETURN [n IN nodes(path)|n.name] AS cycle LIMIT 20;
 ```
 
+### 샘플 ⑨ 의미로 코드 찾기 — 이름이 아니라 '하는 일'로 (enrich 필요)
+> 🗣️ *"결제(Authorize.Net) 관련 동작을 하는 핸들러가 뭐가 있어?"*
+```cypher
+MATCH (n:Node) WHERE n.summary CONTAINS $keyword        // 예: '결제', 'Authorize.Net', '배송지', 'PDF'
+RETURN n.name AS name, n.summary AS summary ORDER BY name;
+```
+> `enrich`로 입힌 `summary`를 검색 — 메서드명이 암호 같아도 **행위**로 잡힌다. 빈 결과면 해당 의미가 아직
+> enrich 안 된 것(부분 커버리지)이지 "코드에 없음"이 아니다. `summary`는 보조 — 모순 시 소스를 따른다.
+
 ---
 
 ## 8. 트러블슈팅
@@ -208,5 +228,7 @@ MATCH path=(p:Project)-[:DEPENDS_ON*2..]->(p) RETURN [n IN nodes(path)|n.name] A
 | 화면→DB 추적이 0건 | 스키마 힌트 미공급이라 LLM이 경계 허브 패턴(`IMPLEMENTS_METHOD`)을 모름 → 스킬을 쓰거나 §4 최소 힌트 제공. 또는 빌드 커버리지 한계(루트 README §0). |
 | 결과가 동명으로 뒤섞임 | `name`은 짧아 충돌. `fullName`/`pk`로 좁히라고 지시. 서비스는 클라/서버로 2개씩 보이는 게 정상. |
 | 쓰기 쿼리 시도 | 읽기전용 도구만 노출(`read_neo4j_cypher`). 적재는 별도 쓰기 계정으로 CLI에서만. |
+| `summary`가 비거나 검색 0건 | 해당 노드를 아직 enrich 안 함(부분 커버리지). README 루트 §6 `enrich`로 대상을 더 처리. "코드에 없음" 아님. |
 
 > 적재는 `neo4j`/쓰기 계정으로, MCP(LLM)는 `reader`로 — 권한을 분리한다.
+> 의미(`summary`)는 보조(advisory)·부분 커버리지 — 구조·이름과 모순되면 소스가 ground truth.

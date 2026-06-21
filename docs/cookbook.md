@@ -199,7 +199,7 @@ MATCH (vm:ViewModel)-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)
 WHERE NOT (h)-[:CALLS*1..4]->(:Method)<-[:IMPLEMENTS_METHOD]-(:Method)
 RETURN vm.name AS viewModel, c.name AS command ORDER BY viewModel LIMIT 30;
 ```
-> 인터페이스 허브에 안 닿는 커맨드(전체의 9.6%). 대개 순수 UI(`Reset`/`DoubleClick`)거나 5홉↑ 또는 사각지대(§7). "버그"가 아니라 분류 출발점.
+> 인터페이스 허브에 안 닿는 커맨드(전체의 9.6%). 대개 순수 UI(`Reset`/`DoubleClick`)거나 5홉↑ 또는 사각지대(§8). "버그"가 아니라 분류 출발점.
 
 ### ⑦ 서비스 인벤토리 — 클라 REST 프록시 ↔ 서버 구현
 같은 인터페이스 메서드를 **양쪽 네임스페이스가 다 구현**하는 것만(보일러플레이트 `Connect`/`InitializeComponent` 제외).
@@ -334,7 +334,83 @@ RETURN DISTINCT caller.fullName, collect(DISTINCT m.name) AS calls ORDER BY call
 
 ---
 
-## 7. ⚠️ 질의 시 유의 (그래프의 한계)
+## 7. 🧠 의미 계층(enrich) — summary로 코드 읽기
+
+`enrich`(v2)는 결정론 구조 그래프 위에 **LLM이 생성한 한국어 의미**를 노드에 입힌다. pk로 매칭해 `MATCH (n:Node {pk}) SET n += {summary, summaryHash, summaryModel}`. §1~§6이 "무엇이 무엇과 연결되나"(구조)라면, 의미 계층은 **"그게 무슨 일을 하나"**(자연어)다. 구조는 언제든 무료 재생성, 의미는 사이드카(`out/semantic.ndjson`)에 보존 → `--wipe` 후에도 `load --semantic`으로 복원([README §7](../README.md)).
+
+**의미 프로퍼티(노드에 추가됨):**
+
+| 프로퍼티 | 내용 |
+|---|---|
+| `summary` | 한국어 한 줄 요약(이 노드가 하는 일) |
+| `summaryModel` | 생성 모델(예: `claude-haiku-4-5-20251001`) |
+| `summaryHash` | 소스 해시 — 재실행 시 델타-스킵 키 |
+| `effects` / `caveats` | 선택(있을 때만). 현재 enrich 데이터엔 없음(모델이 summary만 반환) |
+
+> **어느 노드든 pk만 맞으면 입는다.** 현재 enrich 대상은 화면 `ViewModel`과 그 커맨드 핸들러 `Method`. 서버 끝단 인터페이스 메서드도 TUI에서 골라 enrich할 수 있다([README §6](../README.md)).
+> ⚠️ **커버리지는 부분적.** enrich한 대상만 `summary`를 가진다(**실측 현재: `PlaceOrderViewModel` 화면 = 36노드**). 더 많이 enrich할수록 늘어난다. **빈 결과 = "아직 enrich 안 함"이지 "코드에 없음"이 아니다**(§8-6과 구별).
+> ⚠️ **의미는 보조(advisory) — 코드가 ground truth.** `summary`가 구조/결정론과 모순되면 신뢰하지 말고 `sourcePath`로 소스를 확인하라.
+
+> **레시피 인덱스(의미 계층):** ⑪ 의미 입은 노드·커버리지 · ⑫ 의미로 코드 찾기 · ⑬ 의미 입은 VM 도시에 · ⑭ 의미 결합 E2E.
+
+### ⑪ 의미 입은 노드 + enrich 커버리지
+```cypher
+// summary가 있는 노드(= enrich됨)와 생성 모델
+MATCH (n:Node) WHERE n.summary IS NOT NULL
+RETURN labels(n) AS kind, n.name AS name, n.summary AS summary, n.summaryModel AS model
+ORDER BY name LIMIT 40;
+// 커버리지 한 줄
+MATCH (n:Node) WHERE n.summary IS NOT NULL RETURN count(n) AS enriched;
+```
+실측: **36노드**(PlaceOrderViewModel 화면, 모두 `claude-haiku-4-5-20251001`).
+
+### ⑫ 🔎 의미로 코드 찾기 — 이름이 아니라 '하는 일'로
+"결제(Authorize.Net) 관련 동작이 뭐가 있지?" — 식별자명이 아니라 **행위**로 검색. 메서드명이 암호 같아도 의미로 잡힌다.
+```cypher
+MATCH (n:Node) WHERE n.summary CONTAINS $keyword   // 예: 'Authorize.Net', '배송지', 'PDF', '장바구니'
+RETURN n.name AS name, n.summary AS summary ORDER BY name;
+```
+실측(`'Authorize.Net'`): 결제 프로필 신규 생성·만료일 갱신·청구정보 수정·CIM 고객 프로필 생성 등 **6+개 핸들러**가 한 번에. 메서드명만으론 안 보이던 결제 도메인이 드러난다.
+
+### ⑬ 🎯 의미 입은 VM 도시에 — 사람이 읽는 화면 명세
+§4-③(구조)에 각 핸들러의 `summary`를 결합 = "이 화면이 하는 일"을 자연어로. Mermaid·소스 스니펫 없이도 화면 명세가 된다.
+```cypher
+MATCH (vm:ViewModel {name:$vmName})
+OPTIONAL MATCH (vm)-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)
+RETURN coalesce(vm.summary, '(VM 요약 없음)') AS 화면,
+       c.name AS command, h.name AS handler, h.summary AS 하는일
+ORDER BY command;
+```
+> `vm.summary` = 화면 한 줄 정의, `h.summary` = 커맨드별 동작. 이 표가 곧 [예제 B](#예제-b--viewmodel-도시에-목적-2의-산출-본보기)의 **자연어판**이다.
+
+### ⑭ 의미 결합 E2E — 체인 각 홉에 설명 부착
+§4-②/⑥-A의 구조 체인에 `summary`를 얹어 사람이 읽는 추적. (서버 끝단 `impl`도 enrich돼 있으면 `impl.summary`까지 함께.)
+```cypher
+MATCH (v:View {name:$viewName})-[:BINDS_TO]->(vm:ViewModel)
+MATCH (vm)-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)
+RETURN c.name AS command, h.name AS handler, h.summary AS 동작설명
+ORDER BY command;
+```
+
+### 산출 본보기 — PlaceOrder 화면이 할 수 있는 일 (의미 계층 실측)
+`out/semantic.ndjson` 36건 중 발췌(디코딩한 실제 `summary`). 구조(§4-③)와 조인하면 커맨드별로 정렬되어 §6-B 같은 표가 된다.
+
+- **(화면)** 주문 배치(PlaceOrder)로 고객 선택·배송지/청구지 관리·결제 수단 선택·상품/수량 입력·장바구니·가격정책 적용·최종 주문 생성까지 전체 주문 프로세스 제어
+- 선택한 고객의 상세정보·잔액·신용한도·배송지/청구지·댓글·결제 프로필을 로드하고 초기화
+- 선택한 고객의 주문 목록을 검색 조건에 따라 조회하여 첫 페이지 표시
+- 선택한 상품 변종과 수량을 장바구니에 추가하고 신용 한도 확인
+- 장바구니의 상품들에 고객 등급·특별가격 등 가격정책을 적용
+- 선택한 고객의 청구 주소로 Authorize.Net에 신용카드 결제 프로필 신규 생성
+- Authorize.Net 결제 프로필의 신용카드 만료일을 업데이트하고 프로필 재로드
+- 주문 인보이스를 PDF로 변환하여 프린터로 인쇄하거나 뷰어로 표시
+- 신용 한도 초과로 잠긴 고객의 주문을 해제하기 위한 다이얼로그 표시 및 인증 처리
+- 모든 검증·중복 확인을 거쳐 최종 주문을 생성하고 인보이스 번호 표시
+
+> 이 자연어 목록 + §4-③ 구조 표 + (Phase 2) 소스 스니펫 = **화면 한 장의 완성된 위키 페이지**. LLM은 이를 Markdown으로 합성한다(목적 #2·#3).
+
+---
+
+## 8. ⚠️ 질의 시 유의 (그래프의 한계)
 
 1. **타입 레벨 영향도:** `USES_TYPE`는 파라미터/반환/필드 타입을 잡는다(상위집합 — 누락보다 과검출이 안전). 최종 확인은 컴파일러로.
 2. **DI 그래프 없음:** `REGISTERS`는 비목표(사용자가 DI 직접 관리). 경계 봉합은 `IMPLEMENTS_METHOD` 허브로 충분.

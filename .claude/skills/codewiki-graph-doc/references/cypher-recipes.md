@@ -23,6 +23,10 @@
 `Method`만 `arguments`/`returnType` 추가(오버로드 구분). 모든 노드는 공유 `:Node` 라벨도 가짐.
 **`Folder` 라벨은 미사용**(파일 입자는 `:File`까지).
 
+**의미 계층(enrich, 선택):** `enrich`된 노드는 `summary`(LLM 한국어 요약)·`summaryModel`(생성 모델)·
+`summaryHash`(델타-스킵 키)도 가진다. **부분 커버리지**(enrich한 대상만, 보통 `ViewModel`·핸들러 `Method`).
+커버리지 확인: `MATCH (n:Node) WHERE n.summary IS NOT NULL RETURN count(n)`. 보조(advisory) — 코드가 ground truth.
+
 **네임스페이스 규약(경계 식별의 핵심):**
 - 클라이언트 WPF: `Shefa.*` — REST 프록시는 `Shefa.Service.RestAPI.*`
 - 서버 서비스 구현: `Torba.Service.*` — 서버 끝단 필터는 `WHERE x.fullName STARTS WITH 'Torba.Service'`
@@ -114,6 +118,15 @@ RETURN c.name AS command, collect(DISTINCT e.name) AS entities ORDER BY command;
 ```
 > 빈 `serverImpls`/`entities`는 서버 미경유(순수 UI) 커맨드 — 누락이 아니라 분류.
 
+의미(`summary`) 결합 — 사람이 읽는 화면 명세(enrich돼 있으면):
+```cypher
+MATCH (vm:ViewModel {name:$vmName})
+OPTIONAL MATCH (vm)-[:DEFINES_COMMAND]->(c:Command)-[:EXECUTES]->(h:Method)
+RETURN coalesce(vm.summary,'') AS 화면, c.name AS command, h.name AS handler,
+       coalesce(h.summary,'') AS 하는일 ORDER BY command;
+```
+> `화면`=VM 한 줄 정의, `하는일`=커맨드별 동작. 구조 표(위)와 이 표를 조인하면 "기능 명세"가 된다.
+
 ### C. 타입/DTO 변경 영향도
 ```cypher
 // 1차: 직접 참조
@@ -178,6 +191,19 @@ WHERE NOT (h)-[:CALLS*1..4]->(:Method)<-[:IMPLEMENTS_METHOD]-(:Method)
 RETURN vm.name AS viewModel, c.name AS command ORDER BY viewModel LIMIT 30;
 ```
 
+### E. 의미 계층(enrich) — summary 질의
+```cypher
+// 커버리지: enrich된 노드 수
+MATCH (n:Node) WHERE n.summary IS NOT NULL RETURN count(n) AS enriched;
+// 의미로 코드 찾기 — 이름이 아니라 '하는 일'(행위)로
+MATCH (n:Node) WHERE n.summary CONTAINS $keyword            // 예: '결제', '배송지', 'PDF', '장바구니'
+RETURN n.name AS name, n.summary AS summary ORDER BY name;
+// 임의 노드에 summary 부착(표·문단 보강용)
+MATCH (m:Method {name:$method}) RETURN m.fullName, m.summary, m.summaryModel;
+```
+> 다른 레시피(A/B/D)에 `h.summary`/`impl.summary`/`vm.summary`를 `RETURN`에 더하면 표가 자연어 설명을 갖춘다.
+> `summary`는 보조·부분 커버리지 — 없으면 비고, 모순되면 소스(`fullName`로 `Grep`)를 확인해 따른다.
+
 ---
 
 ## 4. Mermaid 변환법
@@ -216,3 +242,5 @@ graph TD
 4. **경계는 `IMPLEMENTS_METHOD` 허브로만.** 라우트 문자열·DI 등록(`REGISTERS`)은 비목표.
 5. **끝단은 Entity까지.** `USES`는 `Repository<T>`의 `T`. DbContext·물리 테이블명은 없음.
 6. **사각지대:** raw SQL(`CallRawSQL`), `DTOGenerator` 산출물.
+7. **의미(`summary`)는 보조·부분 커버리지.** enrich한 노드만 가진다(없음=미enrich, 코드에 없음 아님).
+   구조·이름과 모순되면 소스를 따른다. 출처로 `summaryModel`을 밝혀도 좋다.
